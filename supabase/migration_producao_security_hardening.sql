@@ -28,4 +28,25 @@ REVOKE EXECUTE ON FUNCTION public.handle_new_user_profile() FROM PUBLIC, anon, a
 REVOKE EXECUTE ON FUNCTION public.prevent_profile_role_escalation() FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.rls_auto_enable() FROM PUBLIC, anon, authenticated;
 
+
+DROP POLICY IF EXISTS "Leitura de calendário" ON public.calendar_days;
+CREATE POLICY "Leitura de calendário" ON public.calendar_days FOR SELECT TO authenticated
+USING (public.has_active_subscription(auth.uid()));
+
+DROP POLICY IF EXISTS "Leitura de guia de ingredientes" ON public.ingredient_guide;
+CREATE POLICY "Leitura de guia de ingredientes" ON public.ingredient_guide FOR SELECT TO authenticated
+USING (public.has_active_subscription(auth.uid()));
+
+DROP POLICY IF EXISTS "Leitura de guia de medidas" ON public.measures_guide;
+CREATE POLICY "Leitura de guia de medidas" ON public.measures_guide FOR SELECT TO authenticated
+USING (public.has_active_subscription(auth.uid()));
+
+DROP POLICY IF EXISTS "Leitura de listas de compras" ON public.shopping_lists;
+CREATE POLICY "Leitura de listas de compras" ON public.shopping_lists FOR SELECT TO authenticated
+USING (public.has_active_subscription(auth.uid()));
+
+DROP POLICY IF EXISTS "Leitura de técnicas" ON public.techniques;
+CREATE POLICY "Leitura de técnicas" ON public.techniques FOR SELECT TO authenticated
+USING (public.has_active_subscription(auth.uid()));
+
 COMMIT;
