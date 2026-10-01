@@ -86,9 +86,9 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const hasAccess = Boolean(
     isAdmin ||
       (subscription &&
-        subscription.status === 'active' &&
-        (!subscription.currentPeriodEnd ||
-          new Date(subscription.currentPeriodEnd).getTime() > Date.now()))
+        ['active', 'trialing'].includes(subscription.status) &&
+        Boolean(subscription.currentPeriodEnd) &&
+        new Date(subscription.currentPeriodEnd).getTime() > Date.now())
   );
 
   const isPastDue = Boolean(subscription && subscription.status === 'past_due');
