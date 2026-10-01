@@ -50,7 +50,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
-GRANT EXECUTE ON FUNCTION public.is_admin(UUID) TO anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.is_admin(UUID) FROM PUBLIC, anon;\nGRANT EXECUTE ON FUNCTION public.is_admin(UUID) TO authenticated;
 
 -- A. Verifica se o usuário possui assinatura ativa ou perfil admin
 CREATE OR REPLACE FUNCTION public.has_active_subscription(user_id_param UUID)
@@ -68,7 +68,7 @@ BEGIN
           AND COALESCE(periodo_atual_fim, current_period_end) > NOW()
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- B. Trava de segurança: impede que usuário comum altere seu próprio role para 'admin'
 CREATE OR REPLACE FUNCTION public.prevent_profile_role_escalation()
