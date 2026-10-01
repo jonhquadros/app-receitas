@@ -27,16 +27,12 @@ BEGIN
         RETURN TRUE;
     END IF;
 
-    -- Durante a Fase 4 (antes da Fase 7 de pagamentos), todos os usuários logados têm acesso total para testes
-    IF user_id_param IS NOT NULL THEN
-        RETURN TRUE;
-    END IF;
-
     RETURN EXISTS (
-        SELECT 1 FROM public.subscriptions 
-        WHERE user_id = user_id_param 
+        SELECT 1 FROM public.subscriptions
+        WHERE user_id = user_id_param
           AND status IN ('active', 'trialing')
-          AND (current_period_end IS NULL OR current_period_end > NOW())
+          AND COALESCE(periodo_atual_fim, current_period_end) IS NOT NULL
+          AND COALESCE(periodo_atual_fim, current_period_end) > NOW()
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
