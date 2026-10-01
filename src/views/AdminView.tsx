@@ -185,9 +185,9 @@ export const AdminView: React.FC<AdminViewProps> = ({ onBack }) => {
         .insert({
           user_id: targetUser.id,
           status: newStatus,
-          manual_override: true,
-          periodo_atual_fim: newStatus === 'active' ? '2099-12-31T23:59:59.000Z' : null,
-          current_period_end: newStatus === 'active' ? '2099-12-31T23:59:59.000Z' : null,
+          manual_override: newStatus === 'active',
+          periodo_atual_fim: null,
+          current_period_end: null,
         });
 
       if (error) {
