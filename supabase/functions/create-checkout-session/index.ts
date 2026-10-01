@@ -51,6 +51,33 @@ serve(async (req) => {
 
     const { priceId, plan, returnUrl } = await req.json();
 
+    const supabaseAdmin = createClient(
+      supabaseUrl,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+
+    // Impede múltiplas assinaturas recorrentes para o mesmo usuário.
+    const { data: existingSub, error: existingSubError } = await supabaseAdmin
+      .from('subscriptions')
+      .select('status, stripe_customer_id, stripe_subscription_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (existingSubError) {
+      throw new Error('Não foi possível verificar a assinatura atual.');
+    }
+
+    if (
+      existingSub &&
+      ['active', 'trialing', 'past_due', 'incomplete'].includes(existingSub.status)
+    ) {
+      return new Response(
+        JSON.stringify({ error: 'Você já possui uma assinatura ou pagamento em andamento. Gerencie sua assinatura atual antes de iniciar outra.' }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     if (!priceId) {
       return new Response(JSON.stringify({ error: 'priceId é obrigatório' }), {
         status: 400,
