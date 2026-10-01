@@ -33,6 +33,7 @@ CREATE OR REPLACE FUNCTION public.has_active_subscription(user_id_param UUID)
 RETURNS BOOLEAN AS $
 BEGIN
     IF user_id_param IS NULL THEN RETURN FALSE; END IF;
+    IF auth.role() = 'authenticated' AND user_id_param <> auth.uid() THEN RETURN FALSE; END IF;
     IF public.is_admin(user_id_param) THEN RETURN TRUE; END IF;
 
     IF EXISTS (
