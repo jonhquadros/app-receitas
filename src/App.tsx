@@ -4,7 +4,6 @@ import { FontSizeProvider } from './context/FontSizeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { FavoritesProvider } from './context/FavoritesContext';
 import { RecentRecipesProvider, useRecentRecipes } from './context/RecentRecipesContext';
-import { MOCK_RECIPES } from './data/mockRecipes';
 import { Recipe } from './types/recipe';
 import { fetchRecipes } from './services/recipeService';
 import { BottomNav, TabType } from './components/BottomNav';
@@ -22,7 +21,7 @@ import { SubscriptionProvider, useSubscription } from './context/SubscriptionCon
 import { Leaf, ArrowLeft } from 'lucide-react';
 
 function AppContent() {
-  const [recipes, setRecipes] = useState<Recipe[]>(MOCK_RECIPES);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [searchCategory, setSearchCategory] = useState<string>('');
