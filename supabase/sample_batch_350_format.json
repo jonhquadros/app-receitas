@@ -1,0 +1,43 @@
+[
+  {
+    "numero": 4,
+    "titulo": "INFUSÃO DE ERVA-DOCE COM HORTELÃ",
+    "categoria": "Infusões",
+    "uso_tradicional": "Popularmente consumida após refeições mais pesadas para trazer sensação de leveza e conforto na barriga. A mistura das sementes com a folha fresca cria um sabor doce e ao mesmo tempo refrescante.",
+    "tempo_preparo_min": 2,
+    "tempo_cozimento_infusao_min": 7,
+    "tempo_total_min": 9,
+    "rendimento": "1 porção (1 xícara)",
+    "como_utilizar": "Beber morno, em pequenos goles, aproveitando o frescor da hortelã.",
+    "melhor_momento": "Cerca de 30 minutos após o almoço ou jantar.",
+    "armazenamento": "Deve ser consumido na hora do preparo.",
+    "substituicoes": "Se não tiver hortelã fresca, pode usar meia colher de chá de hortelã desidratada.",
+    "atencao": "O consumo excessivo de erva-doce não é recomendado para gestantes; sempre consulte um profissional de saúde. Pessoas com alergia a plantas da família da cenoura e aipo podem ter sensibilidade à erva-doce.",
+    "is_preview": true,
+    "ingredientes": [
+      "250 ml de água filtrada",
+      "1 colher de chá de sementes de erva-doce secas",
+      "5 folhas frescas de hortelã"
+    ],
+    "utensilios": [
+      "Panela pequena",
+      "Peneira fina",
+      "Xícara com tampa (ou um pires para tampar)"
+    ],
+    "modo_preparo": [
+      "1. Lave bem as folhas de hortelã em água corrente e separe as sementes de erva-doce.",
+      "2. Coloque os 250 ml de água na panela e leve ao fogo alto até começar a ferver.",
+      "3. Assim que a água ferver, desligue o fogo imediatamente.",
+      "4. Coloque as sementes de erva-doce e as folhas de hortelã dentro da panela (ou diretamente na sua xícara, se preferir).",
+      "5. Despeje a água quente por cima das ervas.",
+      "6. Tampe a panela (ou a xícara com um pires) para não deixar o vapor escapar.",
+      "7. Aguarde o tempo de infusão de 5 a 7 minutos.",
+      "8. Coe usando a peneira fina.",
+      "9. Sirva em seguida."
+    ],
+    "dicas_seu_neco": [
+      "(1) Para a erva-doce soltar ainda mais o sabor, dê uma leve \"esmagada\" nas sementes com as costas de uma colher antes de colocar a água quente.",
+      "(2) Não deixe as folhas de hortelã abafadas por mais de 10 minutos, ou o chá pode escurecer e perder o frescor."
+    ]
+  }
+]
