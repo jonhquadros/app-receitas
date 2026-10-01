@@ -17,8 +17,13 @@ export const PaymentStatusModal: React.FC<PaymentStatusModalProps> = ({
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('success') === 'true' || params.get('session_id')) {
-      setModalType('success');
-      checkSubscriptionStatus();
+      checkSubscriptionStatus().then((sub) => {
+        if (sub && ['active', 'trialing'].includes(sub.status) && sub.currentPeriodEnd) {
+          setModalType('success');
+        } else {
+          setModalType('canceled');
+        }
+      });
       // Limpa os parâmetros da URL sem recarregar a página
       window.history.replaceState({}, document.title, window.location.pathname);
     } else if (params.get('canceled') === 'true') {
