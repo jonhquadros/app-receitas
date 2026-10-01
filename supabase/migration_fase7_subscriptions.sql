@@ -30,21 +30,29 @@ WITH CHECK (public.is_admin());
 
 -- 5. Atualizar função de verificação de assinatura ativa
 CREATE OR REPLACE FUNCTION public.has_active_subscription(user_id_param UUID)
-RETURNS BOOLEAN AS $$
+RETURNS BOOLEAN AS $
 BEGIN
-    -- Se for admin, acesso sempre liberado
-    IF EXISTS (SELECT 1 FROM public.profiles WHERE id = user_id_param AND role = 'admin') THEN
+    IF user_id_param IS NULL THEN RETURN FALSE; END IF;
+    IF public.is_admin(user_id_param) THEN RETURN TRUE; END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM public.subscriptions
+        WHERE user_id = user_id_param
+          AND manual_override = TRUE
+          AND status IN ('active', 'trialing')
+    ) THEN
         RETURN TRUE;
     END IF;
 
-    -- Verificar se possui assinatura ativa não expirada
     RETURN EXISTS (
-        SELECT 1 FROM public.subscriptions 
-        WHERE user_id = user_id_param 
+        SELECT 1 FROM public.subscriptions
+        WHERE user_id = user_id_param
           AND status IN ('active', 'trialing')
-          AND (periodo_atual_fim IS NULL OR periodo_atual_fim > NOW() OR current_period_end > NOW())
+          AND COALESCE(periodo_atual_fim, current_period_end) IS NOT NULL
+          AND COALESCE(periodo_atual_fim, current_period_end) > NOW()
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
-GRANT EXECUTE ON FUNCTION public.has_active_subscription(UUID) TO authenticated, anon;
+REVOKE EXECUTE ON FUNCTION public.has_active_subscription(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.has_active_subscription(UUID) TO authenticated;
