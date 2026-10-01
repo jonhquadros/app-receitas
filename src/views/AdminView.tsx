@@ -182,7 +182,13 @@ export const AdminView: React.FC<AdminViewProps> = ({ onBack }) => {
       await supabase.from('subscriptions').delete().eq('user_id', targetUser.id);
       const { error } = await supabase
         .from('subscriptions')
-        .insert({ user_id: targetUser.id, status: newStatus });
+        .insert({
+          user_id: targetUser.id,
+          status: newStatus,
+          manual_override: true,
+          periodo_atual_fim: newStatus === 'active' ? '2099-12-31T23:59:59.000Z' : null,
+          current_period_end: newStatus === 'active' ? '2099-12-31T23:59:59.000Z' : null,
+        });
 
       if (error) {
         setUserActionMsg({ text: `Falha ao atualizar acesso: ${error.message}`, isError: true });
