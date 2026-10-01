@@ -14,7 +14,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
       - run: npm install
       - run: npm run lint
       - run: npm run build
@@ -26,6 +25,6 @@ jobs:
       - uses: denoland/setup-deno@v1
         with:
           deno-version: v2.x
-      - run: deno check supabase/functions/create-checkout-session/index.ts
-      - run: deno check supabase/functions/create-customer-portal/index.ts
-      - run: deno check supabase/functions/stripe-webhook/index.ts
+      - run: deno check --node-modules-dir=auto supabase/functions/create-checkout-session/index.ts
+      - run: deno check --node-modules-dir=auto supabase/functions/create-customer-portal/index.ts
+      - run: deno check --node-modules-dir=auto supabase/functions/stripe-webhook/index.ts
