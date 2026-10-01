@@ -18,20 +18,13 @@ interface SubscriptionContextType {
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
 
-// Stripe Price IDs configuráveis via env vars com fallbacks
-export const STRIPE_PRICES = {
-  mensal: import.meta.env.VITE_STRIPE_PRICE_MENSAL || 'price_mensal_1990',
-  anual: import.meta.env.VITE_STRIPE_PRICE_ANUAL || 'price_anual_9700',
-};
-
 export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, isAdmin, session } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isCheckingOut, setIsCheckingOut] = useState<boolean>(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
-  // Consulta status atual da assinatura no Supabase
   const fetchSubscription = useCallback(async (): Promise<UserSubscription | null> => {
     if (!user || !isSupabaseConfigured() || !supabase) {
       setSubscription(null);
@@ -64,10 +57,10 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
         };
         setSubscription(sub);
         return sub;
-      } else {
-        setSubscription(null);
-        return null;
       }
+
+      setSubscription(null);
+      return null;
     } catch (err) {
       console.warn('Erro ao verificar assinatura:', err);
       return null;
@@ -80,9 +73,6 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     fetchSubscription();
   }, [fetchSubscription]);
 
-  // REGRA CENTRAL DE ACESSO:
-  // 1. Administrador (Fase 4) sempre tem acesso total
-  // 2. Se for assinatura ativa: liberado dentro do período
   const hasAccess = Boolean(
     isAdmin ||
       (subscription &&
@@ -93,7 +83,6 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const isPastDue = Boolean(subscription && subscription.status === 'past_due');
 
-  // Iniciar Checkout do Stripe
   const startCheckout = async (plan: 'mensal' | 'anual') => {
     if (!user) {
       setCheckoutError('Faça login ou crie sua conta gratuita antes de assinar.');
@@ -103,36 +92,42 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setIsCheckingOut(true);
     setCheckoutError(null);
 
-    const priceId = STRIPE_PRICES[plan];
-
     try {
       if (!isSupabaseConfigured() || !supabase) {
         throw new Error('Serviço de banco de dados não configurado.');
       }
 
-      // Tentar invocar Edge Function do Supabase create-checkout-session
+      // O backend escolhe o Price ID a partir do plano. O frontend não envia
+      // Price IDs nem valores de preço, evitando divergência entre ambientes.
       const { data, error } = await supabase.functions.invoke('create-checkout-session', {
-        body: {
-          priceId,
-          plan,
-          returnUrl: window.location.origin,
-        },
+        body: { plan },
       });
 
       if (error) {
-        console.warn('Edge Function retornou erro ou não está implantada:', error);
-        // Se a Edge Function ainda não foi implantada pelo usuário no painel do Supabase,
-        // geramos um aviso transparente com instruções
+        let backendMessage = '';
+        try {
+          const response = (error as any).context;
+          if (response && typeof response.json === 'function') {
+            const payload = await response.json();
+            backendMessage = typeof payload?.error === 'string' ? payload.error : '';
+          }
+        } catch {
+          // Mantém a mensagem genérica caso o corpo da resposta não esteja disponível.
+        }
+
+        console.warn('Erro retornado pela Edge Function:', error, backendMessage);
         throw new Error(
-          'O Checkout do Stripe precisa da Edge Function "create-checkout-session" configurada no Supabase com suas chaves de teste do Stripe.'
+          backendMessage ||
+            'Não foi possível iniciar o Checkout. Tente novamente em alguns instantes.'
         );
       }
 
       if (data?.url) {
         window.location.href = data.url;
-      } else {
-        throw new Error('URL de pagamento não foi retornada pelo Stripe.');
+        return;
       }
+
+      throw new Error('URL de pagamento não foi retornada pelo Stripe.');
     } catch (err: any) {
       console.error('Erro ao iniciar checkout:', err);
       setCheckoutError(err.message || 'Erro ao comunicar com o Stripe.');
@@ -141,7 +136,6 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
 
-  // Abrir Portal do Cliente do Stripe para atualizar cartão ou cancelar
   const openCustomerPortal = async () => {
     if (!user) return;
 
