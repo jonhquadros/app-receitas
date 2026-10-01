@@ -64,7 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             id: currentUser.id,
             nome: defaultName,
             tema: 'automatico',
-            role: currentUser.email?.includes('usuario_a') ? 'admin' : 'usuario',
+            role: 'usuario',
           });
         }
       }
