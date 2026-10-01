@@ -78,14 +78,22 @@ serve(async (req) => {
       );
     }
 
-    if (!priceId) {
-      return new Response(JSON.stringify({ error: 'priceId é obrigatório' }), {
+    const allowedMonthlyPrice = Deno.env.get('STRIPE_PRICE_MENSAL') || '';
+    const allowedAnnualPrice = Deno.env.get('STRIPE_PRICE_ANUAL') || '';
+    const allowedPrice = plan === 'anual' ? allowedAnnualPrice : allowedMonthlyPrice;
+
+    if (!priceId || !allowedPrice || priceId !== allowedPrice) {
+      return new Response(JSON.stringify({ error: 'Plano de pagamento inválido.' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const appOrigin = returnUrl || req.headers.get('origin') || 'https://ais-dev-fwoo3u7w34r33t6nw2ii2n-228482483965.us-east1.run.app';
+    // Não aceita uma URL arbitrária enviada pelo cliente para redirecionamento.
+    const appOrigin =
+      Deno.env.get('APP_URL') ||
+      req.headers.get('origin') ||
+      'https://ais-dev-fwoo3u7w34r33t6nw2ii2n-228482483965.us-east1.run.app';
 
     // Cria a sessão de checkout no Stripe em modo subscription
     const session = await stripe.checkout.sessions.create({
