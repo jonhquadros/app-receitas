@@ -43,6 +43,10 @@ BEGIN
         RETURN FALSE;
     END IF;
 
+    IF auth.role() = 'authenticated' AND user_id_param <> auth.uid() THEN
+        RETURN FALSE;
+    END IF;
+
     RETURN EXISTS (
         SELECT 1 FROM public.profiles
         WHERE id = user_id_param AND role = 'admin'
