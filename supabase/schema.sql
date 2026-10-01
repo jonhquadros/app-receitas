@@ -403,19 +403,19 @@ WITH CHECK (auth.uid() = id);
 
 -- E. GUIAS E CONTEÚDOS
 DROP POLICY IF EXISTS "Leitura de guia de ingredientes" ON public.ingredient_guide;
-CREATE POLICY "Leitura de guia de ingredientes" ON public.ingredient_guide FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Leitura de guia de ingredientes" ON public.ingredient_guide FOR SELECT USING (public.has_active_subscription(auth.uid()));
 
 DROP POLICY IF EXISTS "Leitura de técnicas" ON public.techniques;
-CREATE POLICY "Leitura de técnicas" ON public.techniques FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Leitura de técnicas" ON public.techniques FOR SELECT USING (public.has_active_subscription(auth.uid()));
 
 DROP POLICY IF EXISTS "Leitura de guia de medidas" ON public.measures_guide;
-CREATE POLICY "Leitura de guia de medidas" ON public.measures_guide FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Leitura de guia de medidas" ON public.measures_guide FOR SELECT USING (public.has_active_subscription(auth.uid()));
 
 DROP POLICY IF EXISTS "Leitura de listas de compras" ON public.shopping_lists;
-CREATE POLICY "Leitura de listas de compras" ON public.shopping_lists FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Leitura de listas de compras" ON public.shopping_lists FOR SELECT USING (public.has_active_subscription(auth.uid()));
 
 DROP POLICY IF EXISTS "Leitura de calendário" ON public.calendar_days;
-CREATE POLICY "Leitura de calendário" ON public.calendar_days FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Leitura de calendário" ON public.calendar_days FOR SELECT USING (public.has_active_subscription(auth.uid()));
 
 DROP POLICY IF EXISTS "Leitura de tags" ON public.tags;
 CREATE POLICY "Leitura de tags" ON public.tags FOR SELECT USING (true);
