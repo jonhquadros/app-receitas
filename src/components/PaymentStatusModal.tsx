@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle2, AlertCircle, X, Sparkles, ArrowRight } from 'lucide-react';
 import { useSubscription } from '../context/SubscriptionContext';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 interface PaymentStatusModalProps {
   onGoToRecipes: () => void;
@@ -17,15 +18,45 @@ export const PaymentStatusModal: React.FC<PaymentStatusModalProps> = ({
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('success') === 'true' || params.get('session_id')) {
-      checkSubscriptionStatus().then((sub) => {
-        if (sub && ['active', 'trialing'].includes(sub.status) && sub.currentPeriodEnd) {
-          setModalType('success');
-        } else {
+      const sessionId = params.get('session_id');
+
+      const verifyCheckout = async () => {
+        try {
+          if (sessionId && isSupabaseConfigured() && supabase) {
+            const { data, error } = await supabase.functions.invoke('verify-checkout-session', {
+              body: { sessionId },
+            });
+
+            if (error) {
+              console.warn('Não foi possível verificar o Checkout Session:', error);
+            }
+
+            if (data?.success === true) {
+              const sub = await checkSubscriptionStatus();
+              if (sub && ['active', 'trialing'].includes(sub.status) && sub.currentPeriodEnd) {
+                setModalType('success');
+                window.history.replaceState({}, document.title, window.location.pathname);
+                return;
+              }
+            }
+          }
+
+          const sub = await checkSubscriptionStatus();
+          if (sub && ['active', 'trialing'].includes(sub.status) && sub.currentPeriodEnd) {
+            setModalType('success');
+          } else {
+            setModalType('canceled');
+          }
+        } catch (err) {
+          console.warn('Erro ao confirmar o pagamento:', err);
           setModalType('canceled');
         }
-      });
-      // Limpa os parâmetros da URL sem recarregar a página
-      window.history.replaceState({}, document.title, window.location.pathname);
+
+        // Limpa os parâmetros da URL sem recarregar a página
+        window.history.replaceState({}, document.title, window.location.pathname);
+      };
+
+      verifyCheckout();
     } else if (params.get('canceled') === 'true') {
       setModalType('canceled');
       window.history.replaceState({}, document.title, window.location.pathname);
