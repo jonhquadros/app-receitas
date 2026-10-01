@@ -73,17 +73,31 @@ serve(async (req) => {
               updated_at: new Date().toISOString(),
             }).eq('user_id', userId);
           } else {
+            if (!subscriptionId) {
+              throw new Error('Checkout concluído sem subscription_id.');
+            }
+
+            // O entitlement só é liberado depois de obter do Stripe o período real.
+            const stripeSub = await stripe.subscriptions.retrieve(subscriptionId);
+            const periodEnd = new Date(stripeSub.current_period_end * 1000).toISOString();
+            const stripeStatus =
+              stripeSub.status === 'trialing' ? 'trialing' :
+              stripeSub.status === 'active' ? 'active' :
+              stripeSub.status === 'past_due' ? 'past_due' : 'canceled';
+
             await supabaseAdmin.from('subscriptions').upsert({
               user_id: userId,
               stripe_customer_id: customerId,
               stripe_subscription_id: subscriptionId,
               plano: plan,
-              status: 'active',
-              periodo_atual_fim: null,
+              status: stripeStatus,
+              periodo_atual_fim: periodEnd,
+              current_period_end: periodEnd,
               manual_override: false,
               updated_at: new Date().toISOString(),
             });
-            console.log(`✅ Acesso liberado (status: active) para usuário ${userId}`);
+
+            console.log(`✅ Checkout sincronizado: status=${stripeStatus}, período até ${periodEnd} para usuário ${userId}`);
           }
         }
         break;
@@ -189,6 +203,8 @@ serve(async (req) => {
             .from('subscriptions')
             .update({
               status: 'canceled',
+              periodo_atual_fim: new Date().toISOString(),
+              current_period_end: new Date().toISOString(),
               updated_at: new Date().toISOString(),
             })
             .eq('user_id', currentSub.user_id);
