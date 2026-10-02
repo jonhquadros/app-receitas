@@ -14,9 +14,6 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const isMountedRef = React.useRef(true);
-
-  useEffect(() => () => { isMountedRef.current = false; }, []);
 
   // Escutar mudanças de autenticação para recarregar favoritos do usuário ativo
   useEffect(() => {
@@ -106,7 +103,7 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (!userId) {
           const { data: { session } } = await supabase.auth.getSession();
           userId = session?.user?.id ?? null;
-          if (userId && isMountedRef.current) {
+          if (userId) {
             setCurrentUserId(userId);
           }
         }
