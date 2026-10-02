@@ -19,6 +19,7 @@ import { PastDueWarningBanner } from './components/PastDueWarningBanner';
 import { PaymentStatusModal } from './components/PaymentStatusModal';
 import { SubscriptionProvider, useSubscription } from './context/SubscriptionContext';
 import { Leaf, ArrowLeft } from 'lucide-react';
+import { InstallPwaGate } from './components/InstallPwaGate';
 
 function AppContent() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -274,6 +275,8 @@ function AppContent() {
       <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
 
       {/* Tela de Primeira Abertura (Aviso de Responsabilidade) */}
+      <InstallPwaGate />
+
       <FirstOpeningDisclaimerModal />
 
       {/* Modal de Sucesso ou Cancelamento de Pagamento */}
