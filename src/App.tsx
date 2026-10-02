@@ -30,28 +30,57 @@ function AppContent() {
   const [showPaywallManual, setShowPaywallManual] = useState<boolean>(false);
 
   const { addRecentRecipe } = useRecentRecipes();
-  const { isAdmin } = useAuth();
-  const { hasAccess } = useSubscription();
+  const { user, loading: authLoading, isAdmin } = useAuth();
+  const { hasAccess, loading: subscriptionLoading } = useSubscription();
+  const [recipesLoading, setRecipesLoading] = useState<boolean>(false);
 
   const previewRecipes = recipes.filter((r) => r.isPreview).slice(0, 3);
 
   useEffect(() => {
     let isMounted = true;
+
+    // Aguarda a autenticação e a assinatura terminarem de carregar antes
+    // de consultar receitas protegidas pelo RLS. Isso evita a primeira
+    // consulta com uma sessão ainda não restaurada após o login.
+    if (authLoading || subscriptionLoading) {
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    if (!user || (!hasAccess && !isAdmin)) {
+      setRecipes([]);
+      setRecipesLoading(false);
+      return () => {
+        isMounted = false;
+      };
+    }
+
     async function loadData() {
+      setRecipesLoading(true);
       try {
         const data = await fetchRecipes();
-        if (isMounted && data && data.length > 0) {
-          setRecipes(data);
+        if (isMounted) {
+          setRecipes(data || []);
         }
       } catch (err) {
         console.warn('Erro ao carregar receitas:', err);
+        if (isMounted) {
+          setRecipes([]);
+        }
+      } finally {
+        if (isMounted) {
+          setRecipesLoading(false);
+        }
       }
     }
+
     loadData();
+
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [authLoading, subscriptionLoading, user?.id, hasAccess, isAdmin]);
 
   const handleSelectRecipe = (recipe: Recipe) => {
     setShowAdminView(false);
@@ -186,6 +215,7 @@ function AppContent() {
                   onSelectRecipe={handleSelectRecipe}
                   onSelectCategory={handleSelectCategory}
                   onOpenSearch={handleOpenSearch}
+                  isLoading={recipesLoading}
                 />
               ) : (
                 <PaywallView
