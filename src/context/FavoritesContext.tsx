@@ -12,8 +12,11 @@ const FavoritesContext = createContext<FavoritesContextType | undefined>(undefin
 
 export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [favorites, setFavorites] = useState<string[]>(['004']);
+  const [favorites, setFavorites] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const isMountedRef = React.useRef(true);
+
+  useEffect(() => () => { isMountedRef.current = false; }, []);
 
   // Escutar mudanças de autenticação para recarregar favoritos do usuário ativo
   useEffect(() => {
@@ -28,7 +31,7 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (!userId) {
         // Usuário anônimo / deslogado: carrega do storage anônimo
         const saved = localStorage.getItem('neco_anon_favorites');
-        setFavorites(saved ? JSON.parse(saved) : ['004']);
+        setFavorites(saved ? JSON.parse(saved) : []);
         return;
       }
 
@@ -95,25 +98,41 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Optimistic UI update imediato
     setFavorites(newFavorites);
 
-    // Sincronizar com o Supabase com RLS
-    if (isSupabaseConfigured() && supabase && currentUserId) {
+    // Sincronizar com o Supabase com RLS. Se o contexto ainda não recebeu
+    // o userId após o login, consulta a sessão atual antes de desistir.
+    if (isSupabaseConfigured() && supabase) {
       try {
+        let userId = currentUserId;
+        if (!userId) {
+          const { data: { session } } = await supabase.auth.getSession();
+          userId = session?.user?.id ?? null;
+          if (userId && isMountedRef.current) {
+            setCurrentUserId(userId);
+          }
+        }
+
+        if (!userId) return;
+
         const targetRecipeId =
           recipeId === '004' ? '00000000-0000-0000-0000-000000000004' : recipeId;
 
-        if (isCurrentlyFav) {
-          await supabase
-            .from('favorites')
-            .delete()
-            .eq('user_id', currentUserId)
-            .eq('recipe_id', targetRecipeId);
-        } else {
-          await supabase
-            .from('favorites')
-            .upsert({ user_id: currentUserId, recipe_id: targetRecipeId });
+        const result = isCurrentlyFav
+          ? await supabase
+              .from('favorites')
+              .delete()
+              .eq('user_id', userId)
+              .eq('recipe_id', targetRecipeId)
+          : await supabase
+              .from('favorites')
+              .insert({ user_id: userId, recipe_id: targetRecipeId });
+
+        if (result.error) {
+          console.error('Erro ao sincronizar favorito com Supabase:', result.error.message);
+          setFavorites((prev) => (isCurrentlyFav ? [...prev, recipeId] : prev.filter((id) => id !== recipeId)));
         }
       } catch (err) {
-        console.warn('Erro ao sincronizar favorito com Supabase:', err);
+        console.error('Erro ao sincronizar favorito com Supabase:', err);
+        setFavorites((prev) => (isCurrentlyFav ? [...prev, recipeId] : prev.filter((id) => id !== recipeId)));
       }
     }
   };
