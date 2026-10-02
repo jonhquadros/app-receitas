@@ -10,7 +10,6 @@ interface SubscriptionContextType {
   isPastDue: boolean;
   checkSubscriptionStatus: () => Promise<UserSubscription | null>;
   startCheckout: (plan: 'mensal' | 'anual') => Promise<void>;
-  openCustomerPortal: () => Promise<void>;
   isCheckingOut: boolean;
   checkoutError: string | null;
   setCheckoutError: (err: string | null) => void;
@@ -136,33 +135,6 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
 
-  const openCustomerPortal = async () => {
-    if (!user) return;
-
-    try {
-      if (!isSupabaseConfigured() || !supabase) {
-        alert('Serviço não configurado.');
-        return;
-      }
-
-      const { data, error } = await supabase.functions.invoke('create-customer-portal', {
-        body: { returnUrl: window.location.origin },
-      });
-
-      if (error || !data?.url) {
-        alert(
-          'Para gerenciar ou cancelar sua assinatura, fale diretamente com o suporte no WhatsApp (+55 91 98571-9332) ou aguarde a configuração do Stripe Customer Portal.'
-        );
-        return;
-      }
-
-      window.location.href = data.url;
-    } catch (err) {
-      console.error('Erro ao abrir portal do cliente:', err);
-      alert('Não foi possível abrir o portal no momento. Por favor contate o suporte.');
-    }
-  };
-
   return (
     <SubscriptionContext.Provider
       value={{
@@ -172,7 +144,6 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
         isPastDue,
         checkSubscriptionStatus: fetchSubscription,
         startCheckout,
-        openCustomerPortal,
         isCheckingOut,
         checkoutError,
         setCheckoutError,
