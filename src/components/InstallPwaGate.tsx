@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Download, Smartphone, ShieldCheck } from 'lucide-react';
+import { Download, Smartphone, ShieldCheck, X } from 'lucide-react';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
@@ -21,6 +21,7 @@ export function InstallPwaGate() {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(isStandalone());
   const [showInstallHelp, setShowInstallHelp] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     if (isStandalone()) {
@@ -47,7 +48,7 @@ export function InstallPwaGate() {
     };
   }, []);
 
-  if (installed) return null;
+  if (installed || dismissed) return null;
 
   const handleInstall = async () => {
     if (installPrompt) {
@@ -71,8 +72,16 @@ export function InstallPwaGate() {
         role="dialog"
         aria-modal="true"
         aria-labelledby="install-pwa-title"
-        className="w-full max-w-md rounded-3xl bg-white p-6 text-stone-900 shadow-2xl dark:bg-[#1E2220] dark:text-stone-100"
+        className="relative w-full max-w-md rounded-3xl bg-white p-6 text-stone-900 shadow-2xl dark:bg-[#1E2220] dark:text-stone-100"
       >
+        <button
+          type="button"
+          onClick={() => setDismissed(true)}
+          aria-label="Fechar e lembrar depois"
+          className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-800 active:scale-95 dark:text-stone-400 dark:hover:bg-stone-800 dark:hover:text-stone-100"
+        >
+          <X className="h-5 w-5" />
+        </button>
         <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
           <Download className="h-8 w-8" strokeWidth={2.5} />
         </div>
