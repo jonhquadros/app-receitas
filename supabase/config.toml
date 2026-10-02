@@ -6,9 +6,6 @@ verify_jwt = false
 [functions.create-checkout-session]
 verify_jwt = true
 
-[functions.create-customer-portal]
-verify_jwt = true
-
 # This function validates the authenticated user's Checkout Session
 # inside the handler, so the deployed function can accept the browser request.
 [functions.verify-checkout-session]
