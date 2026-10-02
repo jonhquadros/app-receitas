@@ -20,7 +20,7 @@ function isIOS() {
 export function InstallPwaGate() {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(isStandalone());
-  const [showIOSHelp, setShowIOSHelp] = useState(false);
+  const [showInstallHelp, setShowInstallHelp] = useState(false);
 
   useEffect(() => {
     if (isStandalone()) {
@@ -60,9 +60,9 @@ export function InstallPwaGate() {
       return;
     }
 
-    if (isIOS()) {
-      setShowIOSHelp(true);
-    }
+    // Em navegadores móveis que não disponibilizam beforeinstallprompt,
+    // a instalação precisa ser iniciada pelo menu do próprio navegador.
+    setShowInstallHelp(true);
   };
 
   return (
@@ -96,31 +96,47 @@ export function InstallPwaGate() {
           </div>
         </div>
 
-        {showIOSHelp ? (
+        <button
+          type="button"
+          onClick={handleInstall}
+          className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-5 py-4 text-base font-extrabold text-white shadow-lg transition-transform active:scale-[0.98] hover:bg-emerald-800"
+        >
+          <Download className="h-5 w-5" />
+          {installPrompt ? 'Instalar aplicativo' : 'Como instalar'}
+        </button>
+
+        {showInstallHelp && (
           <div className="mt-5 rounded-2xl bg-stone-100 p-4 text-sm leading-6 dark:bg-stone-800">
-            <strong>Como instalar no iPhone/iPad:</strong>
-            <br />
-            1. Toque em <strong>Compartilhar</strong> no Safari.
-            <br />
-            2. Escolha <strong>Adicionar à Tela de Início</strong>.
-            <br />
-            3. Confirme em <strong>Adicionar</strong>.
+            {isIOS() ? (
+              <>
+                <strong>Como instalar no iPhone/iPad:</strong>
+                <br />
+                1. Toque em <strong>Compartilhar</strong> no Safari.
+                <br />
+                2. Escolha <strong>Adicionar à Tela de Início</strong>.
+                <br />
+                3. Confirme em <strong>Adicionar</strong>.
+              </>
+            ) : (
+              <>
+                <strong>Como instalar no celular:</strong>
+                <br />
+                1. Abra o menu do navegador (<strong>⋮</strong>).
+                <br />
+                2. Toque em <strong>Instalar aplicativo</strong> ou <strong>Adicionar à tela inicial</strong>.
+                <br />
+                3. Confirme a instalação.
+              </>
+            )}
+            <p className="mt-3 text-xs text-stone-500 dark:text-stone-400">
+              Depois de instalar, abra o Seu Neco pelo ícone criado na tela inicial.
+            </p>
           </div>
-        ) : (
-          <button
-            type="button"
-            onClick={handleInstall}
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-5 py-4 text-base font-extrabold text-white shadow-lg transition-transform active:scale-[0.98] hover:bg-emerald-800"
-          >
-            <Download className="h-5 w-5" />
-            Instalar aplicativo
-          </button>
         )}
 
-        {!installPrompt && !isIOS() && (
+        {!installPrompt && !showInstallHelp && (
           <p className="mt-4 text-center text-xs leading-5 text-stone-500 dark:text-stone-400">
-            Se o navegador não mostrar a instalação, use o menu do navegador e escolha
-            <strong> Instalar aplicativo</strong> ou <strong>Adicionar à tela inicial</strong>.
+            Se o botão não abrir a instalação automaticamente, siga as instruções acima pelo menu do navegador.
           </p>
         )}
       </div>
