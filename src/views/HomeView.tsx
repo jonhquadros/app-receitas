@@ -9,6 +9,7 @@ interface HomeViewProps {
   onSelectRecipe: (recipe: Recipe) => void;
   onSelectCategory: (categoryName: string) => void;
   onOpenSearch: (initialQuery?: string) => void;
+  isLoading?: boolean;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
@@ -16,6 +17,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onSelectRecipe,
   onSelectCategory,
   onOpenSearch,
+  isLoading = false,
 }) => {
   const { recentRecipeIds } = useRecentRecipes();
   const recipeOfDay = recipes.find((r) => r.isRecipeOfDay) || recipes[0];
@@ -101,6 +103,13 @@ export const HomeView: React.FC<HomeViewProps> = ({
           Digite: gengibre, digestão, chá de...
         </span>
       </div>
+
+      {isLoading && (
+        <div className="flex items-center justify-center gap-3 py-10 text-emerald-700 dark:text-emerald-400" aria-live="polite">
+          <div className="w-5 h-5 rounded-full border-2 border-emerald-200 border-t-emerald-700 dark:border-emerald-900 dark:border-t-emerald-400 animate-spin" />
+          <span className="text-[15px] font-semibold">Carregando suas receitas...</span>
+        </div>
+      )}
 
       {/* SEÇÃO 5: Receitas vistas recentemente (últimas 5) */}
       {recentRecipes.length > 0 && (
