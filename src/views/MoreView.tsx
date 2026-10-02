@@ -412,7 +412,7 @@ export const MoreView: React.FC<MoreViewProps> = ({
           className="w-full h-[52px] rounded-2xl bg-green-600 hover:bg-green-700 text-white font-bold text-[15px] flex items-center justify-center gap-2 shadow-xs transition-colors active:scale-98"
         >
           <MessageCircle className="w-5 h-5 stroke-[2.5]" />
-          <span>Conversar no WhatsApp (+55 91 98571-9332)</span>
+          <span>Conversar no WhatsApp</span>
         </a>
       </section>
 
