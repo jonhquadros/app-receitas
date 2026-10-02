@@ -39,7 +39,7 @@ export const MoreView: React.FC<MoreViewProps> = ({
   onOpenPaywall,
 }) => {
   const { user, profile, isAdmin, signOut } = useAuth();
-  const { subscription, hasAccess, isPastDue, openCustomerPortal } = useSubscription();
+  const { subscription, hasAccess, isPastDue } = useSubscription();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
 
@@ -340,15 +340,7 @@ export const MoreView: React.FC<MoreViewProps> = ({
           )}
         </div>
 
-        {hasAccess && subscription?.stripeCustomerId ? (
-          <button
-            onClick={openCustomerPortal}
-            className="w-full min-h-[50px] rounded-2xl bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-900 dark:text-stone-100 font-bold text-[15px] flex items-center justify-center gap-2 border border-stone-200 dark:border-stone-700 transition-colors cursor-pointer"
-          >
-            <span>Gerenciar assinatura / cancelar</span>
-            <ChevronRight className="w-4 h-4 stroke-[2.5]" />
-          </button>
-        ) : (
+        {!hasAccess && (
           <button
             onClick={onOpenPaywall}
             className="w-full min-h-[50px] rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[15px] flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
