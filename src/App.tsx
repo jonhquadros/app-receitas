@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { FontSizeProvider } from './context/FontSizeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -30,12 +30,106 @@ function AppContent() {
   const [showAdminView, setShowAdminView] = useState<boolean>(false);
   const [showPaywallManual, setShowPaywallManual] = useState<boolean>(false);
 
+  type AppHistoryState = {
+    appHistory: true;
+    activeTab: TabType;
+    recipeId: string | null;
+    searchCategory: string;
+    searchQuery: string;
+    showAdminView: boolean;
+    showPaywallManual: boolean;
+    scrollY: number;
+  };
+
+  const recipesRef = useRef<Recipe[]>([]);
+  const handlingPopStateRef = useRef(false);
+
   const { addRecentRecipe } = useRecentRecipes();
   const { user, loading: authLoading, isAdmin } = useAuth();
   const { hasAccess, loading: subscriptionLoading } = useSubscription();
   const [recipesLoading, setRecipesLoading] = useState<boolean>(false);
 
   const previewRecipes = recipes.filter((r) => r.isPreview).slice(0, 3);
+
+  useEffect(() => {
+    recipesRef.current = recipes;
+  }, [recipes]);
+
+  useEffect(() => {
+    const initialState: AppHistoryState = {
+      appHistory: true,
+      activeTab: 'home',
+      recipeId: null,
+      searchCategory: '',
+      searchQuery: '',
+      showAdminView: false,
+      showPaywallManual: false,
+      scrollY: window.scrollY,
+    };
+
+    if (!window.history.state?.appHistory) {
+      window.history.replaceState(initialState, '', window.location.href);
+    }
+
+    const restoreState = (state: AppHistoryState) => {
+      handlingPopStateRef.current = true;
+
+      setActiveTab(state.activeTab);
+      setSearchCategory(state.searchCategory || '');
+      setSearchQuery(state.searchQuery || '');
+      setShowAdminView(Boolean(state.showAdminView));
+      setShowPaywallManual(Boolean(state.showPaywallManual));
+
+      if (state.recipeId) {
+        const recipe = recipesRef.current.find((item) => item.id === state.recipeId);
+        setSelectedRecipe(recipe || null);
+      } else {
+        setSelectedRecipe(null);
+      }
+
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: state.scrollY || 0, behavior: 'auto' });
+        handlingPopStateRef.current = false;
+      });
+    };
+
+    const handlePopState = (event: PopStateEvent) => {
+      const state = event.state as AppHistoryState | null;
+      if (!state?.appHistory) return;
+      restoreState(state);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
+  const getCurrentHistoryState = (): AppHistoryState => {
+    const current = window.history.state as Partial<AppHistoryState> | null;
+    return {
+      appHistory: true,
+      activeTab: current?.activeTab ?? activeTab,
+      recipeId: current?.recipeId ?? (selectedRecipe?.id ?? null),
+      searchCategory: current?.searchCategory ?? searchCategory,
+      searchQuery: current?.searchQuery ?? searchQuery,
+      showAdminView: current?.showAdminView ?? showAdminView,
+      showPaywallManual: current?.showPaywallManual ?? showPaywallManual,
+      scrollY: window.scrollY,
+    };
+  };
+
+  const pushHistoryState = (state: Omit<AppHistoryState, 'scrollY'>) => {
+    window.history.pushState(
+      {
+        ...state,
+        scrollY: 0,
+      },
+      '',
+      window.location.href
+    );
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -84,14 +178,47 @@ function AppContent() {
   }, [authLoading, subscriptionLoading, user?.id, hasAccess, isAdmin]);
 
   const handleSelectRecipe = (recipe: Recipe) => {
+    if (handlingPopStateRef.current) return;
+
+    // Guarda a posição atual antes de entrar na receita.
+    // Assim, o botão Voltar do Android restaura exatamente o ponto anterior.
+    const currentState = getCurrentHistoryState();
+    window.history.replaceState(
+      {
+        ...currentState,
+        recipeId: null,
+        scrollY: window.scrollY,
+      },
+      '',
+      window.location.href
+    );
+
     setShowAdminView(false);
+    setShowPaywallManual(false);
     addRecentRecipe(recipe.id);
     setSelectedRecipe(recipe);
+
+    pushHistoryState({
+      appHistory: true,
+      activeTab,
+      recipeId: recipe.id,
+      searchCategory,
+      searchQuery,
+      showAdminView: false,
+      showPaywallManual: false,
+    });
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleBackToList = () => {
-    setSelectedRecipe(null);
+    // Usa o histórico real do PWA para que o botão físico/gesto do Android
+    // e o botão Voltar da interface tenham exatamente o mesmo comportamento.
+    if (window.history.length > 1 && window.history.state?.appHistory) {
+      window.history.back();
+    } else {
+      setSelectedRecipe(null);
+    }
   };
 
   const handleSelectRecipeByNumber = (recipeNumber: number) => {
@@ -105,30 +232,104 @@ function AppContent() {
   };
 
   const handleSelectCategory = (categoryName: string) => {
+    if (handlingPopStateRef.current) return;
+
+    const currentState = getCurrentHistoryState();
+    window.history.replaceState(
+      {
+        ...currentState,
+        recipeId: null,
+        scrollY: window.scrollY,
+      },
+      '',
+      window.location.href
+    );
+
     setShowAdminView(false);
+    setShowPaywallManual(false);
     setSelectedRecipe(null);
     setSearchCategory(categoryName);
     setSearchQuery('');
     setActiveTab('search');
+
+    pushHistoryState({
+      appHistory: true,
+      activeTab: 'search',
+      recipeId: null,
+      searchCategory: categoryName,
+      searchQuery: '',
+      showAdminView: false,
+      showPaywallManual: false,
+    });
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleOpenSearch = (initialQuery?: string) => {
+    if (handlingPopStateRef.current) return;
+
+    const query = initialQuery ?? '';
+    const currentState = getCurrentHistoryState();
+    window.history.replaceState(
+      {
+        ...currentState,
+        recipeId: null,
+        scrollY: window.scrollY,
+      },
+      '',
+      window.location.href
+    );
+
     setShowAdminView(false);
+    setShowPaywallManual(false);
     setSelectedRecipe(null);
-    if (initialQuery !== undefined) {
-      setSearchQuery(initialQuery);
-    }
+    setSearchQuery(query);
     setSearchCategory('');
     setActiveTab('search');
+
+    pushHistoryState({
+      appHistory: true,
+      activeTab: 'search',
+      recipeId: null,
+      searchCategory: '',
+      searchQuery: query,
+      showAdminView: false,
+      showPaywallManual: false,
+    });
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleTabChange = (tab: TabType) => {
+    if (handlingPopStateRef.current) return;
+
+    const currentState = getCurrentHistoryState();
+    window.history.replaceState(
+      {
+        ...currentState,
+        scrollY: window.scrollY,
+      },
+      '',
+      window.location.href
+    );
+
     setShowAdminView(false);
     setShowPaywallManual(false);
-    setSelectedRecipe(null); // Return to list mode when tapping tabs
+    setSelectedRecipe(null);
     setActiveTab(tab);
+    setSearchCategory('');
+    setSearchQuery('');
+
+    pushHistoryState({
+      appHistory: true,
+      activeTab: tab,
+      recipeId: null,
+      searchCategory: '',
+      searchQuery: '',
+      showAdminView: false,
+      showPaywallManual: false,
+    });
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
