@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   X,
   Search,
@@ -11,7 +11,7 @@ import {
   ArrowLeft,
   Sparkles,
 } from 'lucide-react';
-import { INGREDIENT_GUIDE_DATA } from '../../data/extraModulesData';
+import { fetchIngredientGuide } from '../../data/ingredientGuide';
 import { IngredientGuideItem } from '../../types/modules';
 
 interface IngredientGuideModalProps {
@@ -26,56 +26,69 @@ export const IngredientGuideModal: React.FC<IngredientGuideModalProps> = ({
   initialIngredientId,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedIngredient, setSelectedIngredient] = useState<IngredientGuideItem | null>(() => {
-    if (initialIngredientId) {
-      return (
-        INGREDIENT_GUIDE_DATA.find(
-          (i) =>
-            i.id === initialIngredientId ||
-            i.nome_popular.toLowerCase().includes(initialIngredientId.toLowerCase())
-        ) || null
-      );
-    }
-    return null;
-  });
+  const [ingredients, setIngredients] = useState<IngredientGuideItem[]>([]);
+  const [selectedIngredient, setSelectedIngredient] = useState<IngredientGuideItem | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Atualizar seleção se mudar o initialIngredientId
-  React.useEffect(() => {
-    if (initialIngredientId) {
-      const found = INGREDIENT_GUIDE_DATA.find(
-        (i) =>
-          i.id === initialIngredientId ||
-          i.nome_popular.toLowerCase().includes(initialIngredientId.toLowerCase())
-      );
-      if (found) {
-        setSelectedIngredient(found);
-      }
-    }
-  }, [initialIngredientId]);
+  useEffect(() => {
+    if (!isOpen) return;
 
-  // Lista ordenada de A a Z e filtrada pela busca
-  const filteredList = useMemo(() => {
-    const sorted = [...INGREDIENT_GUIDE_DATA].sort((a, b) =>
-      a.nome_popular.localeCompare(b.nome_popular, 'pt-BR')
+    let mounted = true;
+    setLoading(true);
+    setError(null);
+
+    fetchIngredientGuide()
+      .then((data) => {
+        if (mounted) setIngredients(data);
+      })
+      .catch((err) => {
+        console.warn('Erro ao carregar guia de ingredientes:', err);
+        if (mounted) {
+          setIngredients([]);
+          setError('Não foi possível carregar o guia agora. Tente novamente.');
+        }
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!initialIngredientId || ingredients.length === 0) return;
+
+    const q = initialIngredientId.toLowerCase();
+    const found = ingredients.find(
+      (item) =>
+        item.id.toLowerCase() === q ||
+        item.nome_popular.toLowerCase().includes(q)
     );
 
-    if (!searchQuery.trim()) return sorted;
+    if (found) setSelectedIngredient(found);
+  }, [initialIngredientId, ingredients]);
 
+  const filteredList = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
-    return sorted.filter(
+
+    if (!q) return ingredients;
+
+    return ingredients.filter(
       (item) =>
         item.nome_popular.toLowerCase().includes(q) ||
         item.nome_cientifico.toLowerCase().includes(q) ||
         item.como_utilizar.toLowerCase().includes(q)
     );
-  }, [searchQuery]);
+  }, [ingredients, searchQuery]);
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/70 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="w-full max-w-2xl max-h-[92vh] flex flex-col rounded-3xl bg-[#FAF8F5] dark:bg-[#1E2220] border border-stone-200 dark:border-stone-800 shadow-2xl overflow-hidden">
-        {/* Header Modal */}
         <div className="flex items-center justify-between px-5 py-4 bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 shrink-0">
           <div className="flex items-center gap-3">
             {selectedIngredient ? (
@@ -98,7 +111,9 @@ export const IngredientGuideModal: React.FC<IngredientGuideModalProps> = ({
               <p className="text-[13px] text-stone-500 dark:text-stone-400">
                 {selectedIngredient
                   ? selectedIngredient.nome_cientifico
-                  : `${INGREDIENT_GUIDE_DATA.length} ingredientes com sabedoria e cuidados`}
+                  : loading
+                    ? 'Carregando ingredientes...'
+                    : `${ingredients.length} ingredientes disponíveis`}
               </p>
             </div>
           </div>
@@ -112,12 +127,9 @@ export const IngredientGuideModal: React.FC<IngredientGuideModalProps> = ({
           </button>
         </div>
 
-        {/* Content Body */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
           {selectedIngredient ? (
-            /* DETALHES COMPLETOS DO INGREDIENTE SELECIONADO (TODOS OS CAMPOS) */
             <div className="space-y-4 animate-in fade-in duration-200">
-              {/* Nome Científico e Categoria */}
               <div className="p-4 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60">
                 <p className="text-[13px] font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">
                   Nome Científico
@@ -127,51 +139,26 @@ export const IngredientGuideModal: React.FC<IngredientGuideModalProps> = ({
                 </p>
               </div>
 
-              {/* 1. Como Escolher */}
-              <div className="p-4 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-2xs space-y-1">
-                <h3 className="text-[15px] font-bold text-emerald-800 dark:text-emerald-400 flex items-center gap-2">
-                  <Leaf className="w-4 h-4 stroke-[2.5]" />
-                  <span>Como Escolher</span>
-                </h3>
-                <p className="text-[15px] text-stone-800 dark:text-stone-200 leading-relaxed">
-                  {selectedIngredient.como_escolher}
-                </p>
-              </div>
+              {[
+                ['Como Escolher', selectedIngredient.como_escolher, Leaf],
+                ['Como Lavar e Higienizar', selectedIngredient.como_lavar, Sparkles],
+                ['Como Preparar', selectedIngredient.como_preparar, BookOpen],
+                ['Como Armazenar', selectedIngredient.como_armazenar, Info],
+              ].map(([title, value, Icon], index) => (
+                <div
+                  key={String(title)}
+                  className="p-4 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-2xs space-y-1"
+                >
+                  <h3 className="text-[15px] font-bold text-emerald-800 dark:text-emerald-400 flex items-center gap-2">
+                    {React.createElement(Icon as React.ElementType, { className: 'w-4 h-4 stroke-[2.5]' })}
+                    <span>{String(title)}</span>
+                  </h3>
+                  <p className="text-[15px] text-stone-800 dark:text-stone-200 leading-relaxed">
+                    {String(value)}
+                  </p>
+                </div>
+              ))}
 
-              {/* 2. Como Lavar / Higienizar */}
-              <div className="p-4 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-2xs space-y-1">
-                <h3 className="text-[15px] font-bold text-emerald-800 dark:text-emerald-400 flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 stroke-[2.5]" />
-                  <span>Como Lavar e Higienizar</span>
-                </h3>
-                <p className="text-[15px] text-stone-800 dark:text-stone-200 leading-relaxed">
-                  {selectedIngredient.como_lavar}
-                </p>
-              </div>
-
-              {/* 3. Como Preparar */}
-              <div className="p-4 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-2xs space-y-1">
-                <h3 className="text-[15px] font-bold text-emerald-800 dark:text-emerald-400 flex items-center gap-2">
-                  <BookOpen className="w-4 h-4 stroke-[2.5]" />
-                  <span>Como Preparar</span>
-                </h3>
-                <p className="text-[15px] text-stone-800 dark:text-stone-200 leading-relaxed">
-                  {selectedIngredient.como_preparar}
-                </p>
-              </div>
-
-              {/* 4. Como Armazenar */}
-              <div className="p-4 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-2xs space-y-1">
-                <h3 className="text-[15px] font-bold text-emerald-800 dark:text-emerald-400 flex items-center gap-2">
-                  <Info className="w-4 h-4 stroke-[2.5]" />
-                  <span>Como Armazenar</span>
-                </h3>
-                <p className="text-[15px] text-stone-800 dark:text-stone-200 leading-relaxed">
-                  {selectedIngredient.como_armazenar}
-                </p>
-              </div>
-
-              {/* 5. Como Utilizar Tradicionalmente */}
               <div className="p-4 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-2xs space-y-1">
                 <h3 className="text-[15px] font-bold text-emerald-800 dark:text-emerald-400">
                   Como Utilizar na Rotina
@@ -181,7 +168,6 @@ export const IngredientGuideModal: React.FC<IngredientGuideModalProps> = ({
                 </p>
               </div>
 
-              {/* 6. Cuidados Gerais */}
               <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 space-y-1">
                 <h3 className="text-[15px] font-bold text-amber-900 dark:text-amber-300 flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 stroke-[2.5]" />
@@ -192,7 +178,6 @@ export const IngredientGuideModal: React.FC<IngredientGuideModalProps> = ({
                 </p>
               </div>
 
-              {/* 7. Interações Medicamentosas */}
               <div className="p-4 rounded-2xl bg-stone-100 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700/60 space-y-1">
                 <h3 className="text-[15px] font-bold text-stone-900 dark:text-stone-100">
                   Possíveis Interações
@@ -202,7 +187,6 @@ export const IngredientGuideModal: React.FC<IngredientGuideModalProps> = ({
                 </p>
               </div>
 
-              {/* 8. Quem Deve Ter Atenção Especial */}
               <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200/80 dark:border-rose-800/60 space-y-1">
                 <h3 className="text-[15px] font-bold text-rose-900 dark:text-rose-300 flex items-center gap-2">
                   <ShieldAlert className="w-4 h-4 stroke-[2.5]" />
@@ -221,9 +205,7 @@ export const IngredientGuideModal: React.FC<IngredientGuideModalProps> = ({
               </button>
             </div>
           ) : (
-            /* LISTA A–Z COM BUSCA */
             <div className="space-y-3">
-              {/* Campo de Busca Rápida */}
               <div className="relative">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
                 <input
@@ -243,14 +225,34 @@ export const IngredientGuideModal: React.FC<IngredientGuideModalProps> = ({
                 )}
               </div>
 
-              {/* Lista dos Ingredientes */}
-              <div className="space-y-2 pt-1">
-                {filteredList.length === 0 ? (
-                  <div className="p-8 text-center text-stone-500 dark:text-stone-400">
-                    Nenhum ingrediente encontrado com esse nome.
-                  </div>
-                ) : (
-                  filteredList.map((item) => (
+              {loading ? (
+                <div className="p-10 text-center text-stone-500 dark:text-stone-400">
+                  Carregando o Guia de Ingredientes...
+                </div>
+              ) : error ? (
+                <div className="p-8 text-center space-y-3">
+                  <p className="text-stone-600 dark:text-stone-300">{error}</p>
+                  <button
+                    onClick={() => {
+                      setError(null);
+                      setLoading(true);
+                      fetchIngredientGuide()
+                        .then(setIngredients)
+                        .catch(() => setError('Ainda não foi possível carregar o guia.'))
+                        .finally(() => setLoading(false));
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-emerald-700 text-white font-bold"
+                  >
+                    Tentar novamente
+                  </button>
+                </div>
+              ) : filteredList.length === 0 ? (
+                <div className="p-8 text-center text-stone-500 dark:text-stone-400">
+                  Nenhum ingrediente encontrado com esse nome.
+                </div>
+              ) : (
+                <div className="space-y-2 pt-1">
+                  {filteredList.map((item) => (
                     <button
                       key={item.id}
                       onClick={() => setSelectedIngredient(item)}
@@ -269,9 +271,9 @@ export const IngredientGuideModal: React.FC<IngredientGuideModalProps> = ({
                         <ChevronRight className="w-5 h-5 stroke-[2.5]" />
                       </div>
                     </button>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
