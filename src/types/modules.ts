@@ -1,5 +1,6 @@
 export interface IngredientGuideItem {
   id: string;
+  slug: string;
   nome_popular: string;
   nome_cientifico: string;
   como_escolher: string;
