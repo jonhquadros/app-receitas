@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ArrowLeft,
   Heart,
@@ -26,6 +26,8 @@ import { TechniquesModal } from './modules/TechniquesModal';
 import { LegalDisclaimerModal } from './LegalDisclaimerModal';
 import { TermsPrivacyModal } from './TermsPrivacyModal';
 import { findIngredientInText, findTechniqueInText } from '../utils/guideMatcher';
+import { fetchIngredientGuide } from '../data/ingredientGuide';
+import { IngredientGuideItem } from '../types/modules';
 
 interface RecipeDetailProps {
   recipe: Recipe;
@@ -37,6 +39,15 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack }) =>
   const { getTextSizeClass } = useFontSize();
   const [showStepByStep, setShowStepByStep] = useState(false);
   const [checkedIngredients, setCheckedIngredients] = useState<Record<number, boolean>>({});
+  const [ingredientGuideItems, setIngredientGuideItems] = useState<IngredientGuideItem[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    fetchIngredientGuide()
+      .then((items) => { if (active) setIngredientGuideItems(items); })
+      .catch((error) => console.warn('Não foi possível carregar os nomes do guia para vincular ingredientes:', error));
+    return () => { active = false; };
+  }, []);
 
   // Estados dos Modais de Guias
   const [selectedGuideIngredientId, setSelectedGuideIngredientId] = useState<string | null>(null);
@@ -160,7 +171,7 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack }) =>
         <ul className="space-y-2.5 pt-1">
           {recipe.ingredients.map((item, idx) => {
             const isChecked = !!checkedIngredients[idx];
-            const ingredientMatch = findIngredientInText(item);
+            const ingredientMatch = findIngredientInText(item, ingredientGuideItems);
             return (
               <li
                 key={idx}
