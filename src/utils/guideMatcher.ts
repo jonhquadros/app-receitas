@@ -1,5 +1,5 @@
-import { INGREDIENT_GUIDE_DATA, TECHNIQUES_DATA } from '../data/extraModulesData';
-import { TechniqueKey } from '../types/modules';
+import { TECHNIQUES_DATA } from '../data/extraModulesData';
+import { IngredientGuideItem, TechniqueKey } from '../types/modules';
 
 export interface IngredientMatch {
   id: string;
@@ -11,32 +11,37 @@ export interface TechniqueMatch {
   name: string;
 }
 
-// Mapeamento de termos comuns para IDs de ingredientes
-const INGREDIENT_TERMS: { term: string; id: string; name: string }[] = [
-  { term: 'erva-doce', id: 'alecrim', name: 'Erva-doce' }, // wait, id: 'erva-doce'
-  { term: 'erva doce', id: 'erva-doce', name: 'Erva-doce' },
-  { term: 'anis', id: 'erva-doce', name: 'Erva-doce' },
-  { term: 'hortelã', id: 'hortela', name: 'Hortelã' },
-  { term: 'hortela', id: 'hortela', name: 'Hortelã' },
-  { term: 'menta', id: 'hortela', name: 'Hortelã' },
-  { term: 'alecrim', id: 'alecrim', name: 'Alecrim' },
-  { term: 'camomila', id: 'camomila', name: 'Camomila' },
-  { term: 'canela', id: 'canela', name: 'Canela' },
-  { term: 'gengibre', id: 'gengibre', name: 'Gengibre' },
-  { term: 'cravo', id: 'cravo-da-india', name: 'Cravo-da-índia' },
-  { term: 'boldo', id: 'boldo', name: 'Boldo' },
-  { term: 'capim-santo', id: 'capim-santo', name: 'Capim-santo' },
-  { term: 'capim santo', id: 'capim-santo', name: 'Capim-santo' },
-  { term: 'capim-cidreira', id: 'capim-santo', name: 'Capim-santo' },
-  { term: 'capim-limão', id: 'capim-santo', name: 'Capim-santo' },
-  { term: 'carqueja', id: 'carqueja', name: 'Carqueja' },
-  { term: 'louro', id: 'louro', name: 'Louro' },
-  { term: 'manjericão', id: 'manjericao', name: 'Manjericão' },
-  { term: 'manjericao', id: 'manjericao', name: 'Manjericão' },
-];
+// Compara o texto da receita com os nomes reais cadastrados no Supabase.
+// A normalização ignora acentos, caixa e variações após barra (ex.: fruta/folha).
+function normalizeIngredientText(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\\u0300-\\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
 
-// Fix erva-doce id:
-INGREDIENT_TERMS[0].id = 'erva-doce';
+export function findIngredientInText(
+  text: string,
+  guideItems: IngredientGuideItem[] = []
+): IngredientMatch | null {
+  const normalizedText = normalizeIngredientText(text);
+  const candidates = guideItems
+    .flatMap((item) => item.nome_popular.split('/').map((name) => ({
+      id: item.id,
+      name: name.trim(),
+      normalizedName: normalizeIngredientText(name),
+    })))
+    .filter((item) => item.normalizedName.length >= 4)
+    .sort((a, b) => b.normalizedName.length - a.normalizedName.length);
+
+  const match = candidates.find((item) =>
+    normalizedText.includes(item.normalizedName)
+  );
+
+  return match ? { id: match.id, name: match.name } : null;
+}
 
 // Mapeamento de termos comuns para IDs de técnicas
 const TECHNIQUE_TERMS: { term: string; id: TechniqueKey; name: string }[] = [
