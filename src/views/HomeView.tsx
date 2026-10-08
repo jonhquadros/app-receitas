@@ -20,7 +20,29 @@ export const HomeView: React.FC<HomeViewProps> = ({
   isLoading = false,
 }) => {
   const { recentRecipeIds } = useRecentRecipes();
-  const recipeOfDay = recipes.find((r) => r.isRecipeOfDay) || recipes[0];
+
+  // Escolha determinística por data: todos veem a mesma receita no mesmo dia,
+  // e a seleção muda automaticamente quando a data local muda.
+  const getRecipeOfDay = (availableRecipes: Recipe[]): Recipe | undefined => {
+    if (availableRecipes.length === 0) return undefined;
+
+    const today = new Date();
+    const dateKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const stableRecipes = [...availableRecipes].sort((a, b) => {
+      const codeCompare = a.code.localeCompare(b.code, 'pt-BR', { numeric: true });
+      return codeCompare || a.id.localeCompare(b.id);
+    });
+
+    let hash = 0;
+    for (let i = 0; i < dateKey.length; i += 1) {
+      hash = (hash * 31 + dateKey.charCodeAt(i)) >>> 0;
+    }
+
+    const index = hash % stableRecipes.length;
+    return stableRecipes[index];
+  };
+
+  const recipeOfDay = getRecipeOfDay(recipes);
 
   // Resolve the recent recipes objects (max 5)
   const recentRecipes: Recipe[] = recentRecipeIds
