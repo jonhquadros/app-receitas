@@ -9,7 +9,7 @@ export async function fetchIngredientGuide(): Promise<IngredientGuideItem[]> {
   const { data, error } = await supabase
     .from('ingredient_guide')
     .select(
-      'id,nome_popular,nome_cientifico,categoria,como_escolher,como_lavar,como_preparar,como_armazenar,como_utilizar,cuidados,interacoes,quem_deve_ter_atencao'
+      'id,slug,nome_popular,nome_cientifico,categoria,como_escolher,como_lavar,como_preparar,como_armazenar,como_utilizar,cuidados,interacoes,quem_deve_ter_atencao'
     )
     .eq('ativo', true)
     .order('nome_popular', { ascending: true });
