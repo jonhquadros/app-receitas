@@ -21,25 +21,22 @@ export const HomeView: React.FC<HomeViewProps> = ({
 }) => {
   const { recentRecipeIds } = useRecentRecipes();
 
-  // Escolha determinística por data: todos veem a mesma receita no mesmo dia,
-  // e a seleção muda automaticamente quando a data local muda.
+  // Alterna a receita por dia do calendário local. A mesma data sempre
+  // mostra a mesma receita; em dias consecutivos, a receita muda se houver
+  // pelo menos duas receitas disponíveis.
   const getRecipeOfDay = (availableRecipes: Recipe[]): Recipe | undefined => {
     if (availableRecipes.length === 0) return undefined;
 
     const today = new Date();
-    const dateKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     const stableRecipes = [...availableRecipes].sort((a, b) => {
       const codeCompare = a.code.localeCompare(b.code, 'pt-BR', { numeric: true });
       return codeCompare || a.id.localeCompare(b.id);
     });
 
-    let hash = 0;
-    for (let i = 0; i < dateKey.length; i += 1) {
-      hash = (hash * 31 + dateKey.charCodeAt(i)) >>> 0;
-    }
-
-    const index = hash % stableRecipes.length;
-    return stableRecipes[index];
+    const dayNumber = Math.floor(
+      Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) / 86_400_000
+    );
+    return stableRecipes[dayNumber % stableRecipes.length];
   };
 
   const recipeOfDay = getRecipeOfDay(recipes);
