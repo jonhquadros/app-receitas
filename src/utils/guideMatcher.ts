@@ -63,16 +63,6 @@ const TECHNIQUE_TERMS: { term: string; id: TechniqueKey; name: string }[] = [
   { term: 'lavar', id: 'higienizacao', name: 'Higienização' },
 ];
 
-export function findIngredientInText(text: string): IngredientMatch | null {
-  const lower = text.toLowerCase();
-  for (const item of INGREDIENT_TERMS) {
-    if (lower.includes(item.term)) {
-      return { id: item.id, name: item.name };
-    }
-  }
-  return null;
-}
-
 export function findTechniqueInText(text: string): TechniqueMatch | null {
   const lower = text.toLowerCase();
   for (const item of TECHNIQUE_TERMS) {
