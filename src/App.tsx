@@ -49,8 +49,6 @@ function AppContent() {
   const { hasAccess, loading: subscriptionLoading } = useSubscription();
   const [recipesLoading, setRecipesLoading] = useState<boolean>(false);
 
-  const previewRecipes = recipes.filter((r) => r.isPreview).slice(0, 3);
-
   useEffect(() => {
     recipesRef.current = recipes;
   }, [recipes]);
@@ -387,12 +385,10 @@ function AppContent() {
       {/* Main Container */}
       <main className="w-full">
         {selectedRecipe ? (
-          hasAccess || selectedRecipe.isPreview ? (
+          hasAccess ? (
             <RecipeDetail recipe={selectedRecipe} onBack={handleBackToList} />
           ) : (
             <PaywallView
-              previewRecipes={previewRecipes}
-              onSelectPreviewRecipe={handleSelectRecipe}
               onOpenAccount={() => handleTabChange('more')}
             />
           )
@@ -400,8 +396,6 @@ function AppContent() {
           <AdminView onBack={() => setShowAdminView(false)} />
         ) : showPaywallManual ? (
           <PaywallView
-            previewRecipes={previewRecipes}
-            onSelectPreviewRecipe={handleSelectRecipe}
             onOpenAccount={() => {
               setShowPaywallManual(false);
               handleTabChange('more');
@@ -421,8 +415,6 @@ function AppContent() {
                 />
               ) : (
                 <PaywallView
-                  previewRecipes={previewRecipes}
-                  onSelectPreviewRecipe={handleSelectRecipe}
                   onOpenAccount={() => handleTabChange('more')}
                 />
               )
@@ -438,8 +430,6 @@ function AppContent() {
                 />
               ) : (
                 <PaywallView
-                  previewRecipes={previewRecipes}
-                  onSelectPreviewRecipe={handleSelectRecipe}
                   onOpenAccount={() => handleTabChange('more')}
                 />
               )
@@ -454,8 +444,6 @@ function AppContent() {
                 />
               ) : (
                 <PaywallView
-                  previewRecipes={previewRecipes}
-                  onSelectPreviewRecipe={handleSelectRecipe}
                   onOpenAccount={() => handleTabChange('more')}
                 />
               )
