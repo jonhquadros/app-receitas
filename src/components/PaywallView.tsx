@@ -9,7 +9,6 @@ import {
   HelpCircle,
   ShieldCheck,
   RefreshCw,
-  Eye,
   ChevronRight,
   AlertCircle,
   Zap,
@@ -20,14 +19,10 @@ import { useSubscription, STRIPE_PRICES } from '../context/SubscriptionContext';
 import { AuthModal } from './AuthModal';
 
 interface PaywallViewProps {
-  previewRecipes: Recipe[];
-  onSelectPreviewRecipe: (recipe: Recipe) => void;
   onOpenAccount: () => void;
 }
 
 export const PaywallView: React.FC<PaywallViewProps> = ({
-  previewRecipes,
-  onSelectPreviewRecipe,
   onOpenAccount,
 }) => {
   const { user } = useAuth();
@@ -256,56 +251,6 @@ export const PaywallView: React.FC<PaywallViewProps> = ({
           </button>
         </div>
       </div>
-
-      {/* SEÇÃO DE PRÉVIA: 3 RECEITAS DE AMOSTRA (IS_PREVIEW = TRUE) */}
-      <section className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-[#1E2220] border border-stone-200 dark:border-stone-800 shadow-xs space-y-4">
-        <div className="flex items-center justify-between border-b border-stone-100 dark:border-stone-800 pb-3">
-          <div className="space-y-0.5">
-            <h3 className="text-[18px] sm:text-[19px] font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
-              <Eye className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
-              <span>Amostra Gratuita (3 Receitas Liberadas)</span>
-            </h3>
-            <p className="text-[13px] text-stone-500 dark:text-stone-400">
-              Conheça a qualidade do passo a passo antes de assinar
-            </p>
-          </div>
-          <span className="text-[12px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-900 dark:text-emerald-300">
-            Amostra
-          </span>
-        </div>
-
-        <div className="space-y-3">
-          {previewRecipes.map((rec) => (
-            <div
-              key={rec.id}
-              onClick={() => onSelectPreviewRecipe(rec)}
-              className="p-4 rounded-2xl bg-stone-50 hover:bg-emerald-50/50 dark:bg-stone-900/60 dark:hover:bg-emerald-950/30 border border-stone-200/80 dark:border-stone-800 transition-all cursor-pointer flex items-center justify-between gap-3 group"
-            >
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-[12px] font-bold text-emerald-800 dark:text-emerald-400">
-                    {rec.code}
-                  </span>
-                  <span className="text-[12px] font-medium text-stone-500 dark:text-stone-400">
-                    · {rec.categoryDisplay}
-                  </span>
-                </div>
-                <h4 className="text-[16px] font-bold text-stone-900 dark:text-stone-100 group-hover:text-emerald-800 dark:group-hover:text-emerald-300 transition-colors">
-                  {rec.title}
-                </h4>
-                <p className="text-[13px] text-stone-600 dark:text-stone-400 line-clamp-1">
-                  {rec.traditionalUse}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-1 text-[13px] font-bold text-emerald-700 dark:text-emerald-400 shrink-0">
-                <span>Ver amostra</span>
-                <ChevronRight className="w-4 h-4 stroke-[2.5]" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
 
       {/* BOTÃO "JÁ PAGUEI E NÃO LIBEROU" & SUPORTE */}
       <section className="p-5 sm:p-6 rounded-3xl bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 space-y-4">
