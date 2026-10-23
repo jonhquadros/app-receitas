@@ -76,7 +76,7 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack }) =>
   return (
     <div className="pb-32 max-w-2xl mx-auto px-4 pt-4 sm:pt-6 space-y-6">
       {/* Top Header Controls Bar */}
-      <div className="flex items-center justify-between gap-2 pb-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-2">
         <button
           onClick={onBack}
           className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-100 font-bold min-h-[52px] active:scale-95 transition-all"
@@ -86,14 +86,14 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack }) =>
           <span className="text-[16px]">Voltar</span>
         </button>
 
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 max-w-full items-center justify-end gap-1.5 sm:gap-2">
           {/* Compact Font Controls */}
           <FontSizeControls compact />
 
           {/* Favorite Button */}
           <button
             onClick={() => toggleFavorite(recipe.id)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl min-h-[52px] font-bold transition-all active:scale-95 ${
+            className={`shrink-0 flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2.5 rounded-2xl min-h-[52px] font-bold transition-all active:scale-95 ${
               favorited
                 ? 'bg-red-100 text-red-700 dark:bg-red-950/70 dark:text-red-300 border border-red-300 dark:border-red-800'
                 : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700'
@@ -105,7 +105,7 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack }) =>
                 favorited ? 'fill-red-500 text-red-500' : 'stroke-[2.2]'
               }`}
             />
-            <span className="text-[15px]">{favorited ? 'Salvo' : 'Salvar'}</span>
+            <span className="text-[13px] sm:text-[15px] whitespace-nowrap">{favorited ? 'Salvo' : 'Salvar'}</span>
           </button>
         </div>
       </div>
