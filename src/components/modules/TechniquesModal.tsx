@@ -75,7 +75,7 @@ export const TechniquesModal: React.FC<TechniquesModalProps> = ({
               <h2 className="text-[20px] sm:text-[22px] font-bold text-stone-900 dark:text-stone-100">
                 Técnicas Tradicionais
               </h2>
-              <p className="text-[13px] text-stone-500 dark:text-stone-400">
+              <p className="text-[14px] text-stone-500 dark:text-stone-400">
                 Os 6 métodos caseiros para extrair o melhor de cada planta
               </p>
             </div>
