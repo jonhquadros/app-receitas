@@ -99,7 +99,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {/* Header with Close */}
         <div className="flex items-center justify-between">
           <div>
-            <span className="text-[13px] font-bold text-emerald-800 dark:text-emerald-400 tracking-wider uppercase">
+            <span className="text-[14px] font-bold text-emerald-800 dark:text-emerald-400 tracking-wider uppercase">
               {mode === 'signin'
                 ? 'Acesse sua conta'
                 : mode === 'signup'
@@ -190,7 +190,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       setErrorMessage(null);
                       setSuccessMessage(null);
                     }}
-                    className="text-[13px] font-bold text-emerald-800 dark:text-emerald-400 hover:underline min-h-[32px] px-1"
+                    className="text-[14px] font-bold text-emerald-800 dark:text-emerald-400 hover:underline min-h-[32px] px-1"
                   >
                     Esqueci minha senha
                   </button>

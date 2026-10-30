@@ -19,7 +19,7 @@ export const PastDueWarningBanner: React.FC = () => {
 
         <button
           onClick={openCustomerPortal}
-          className="whitespace-nowrap px-3.5 py-1.5 rounded-xl bg-white hover:bg-amber-50 text-amber-950 font-bold text-[13px] flex items-center gap-1.5 shadow-2xs active:scale-95 transition-all cursor-pointer"
+          className="whitespace-nowrap px-3.5 py-1.5 rounded-xl bg-white hover:bg-amber-50 text-amber-950 font-bold text-[14px] flex items-center gap-1.5 shadow-2xs active:scale-95 transition-all cursor-pointer"
         >
           <CreditCard className="w-4 h-4" />
           <span>Atualizar Cartão</span>

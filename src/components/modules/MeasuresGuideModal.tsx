@@ -26,7 +26,7 @@ export const MeasuresGuideModal: React.FC<MeasuresGuideModalProps> = ({
               <h2 className="text-[20px] sm:text-[22px] font-bold text-stone-900 dark:text-stone-100">
                 Guia de Medidas Caseiras
               </h2>
-              <p className="text-[13px] text-stone-500 dark:text-stone-400">
+              <p className="text-[14px] text-stone-500 dark:text-stone-400">
                 Tabela simples e direta para acertar a dose em qualquer xícara
               </p>
             </div>

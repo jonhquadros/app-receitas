@@ -108,7 +108,7 @@ export const IngredientGuideModal: React.FC<IngredientGuideModalProps> = ({
               <h2 className="text-[19px] sm:text-[21px] font-bold text-stone-900 dark:text-stone-100">
                 {selectedIngredient ? selectedIngredient.nome_popular : 'Guia de Ingredientes A–Z'}
               </h2>
-              <p className="text-[13px] text-stone-500 dark:text-stone-400">
+              <p className="text-[14px] text-stone-500 dark:text-stone-400">
                 {selectedIngredient
                   ? selectedIngredient.nome_cientifico
                   : loading
@@ -131,7 +131,7 @@ export const IngredientGuideModal: React.FC<IngredientGuideModalProps> = ({
           {selectedIngredient ? (
             <div className="space-y-4 animate-in fade-in duration-200">
               <div className="p-4 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60">
-                <p className="text-[13px] font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">
+                <p className="text-[14px] font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">
                   Nome Científico
                 </p>
                 <p className="text-[17px] font-bold text-stone-900 dark:text-stone-100 italic">
@@ -262,7 +262,7 @@ export const IngredientGuideModal: React.FC<IngredientGuideModalProps> = ({
                         <h4 className="text-[17px] font-bold text-stone-900 dark:text-stone-100">
                           {item.nome_popular}
                         </h4>
-                        <p className="text-[13px] text-stone-500 dark:text-stone-400 italic">
+                        <p className="text-[14px] text-stone-500 dark:text-stone-400 italic">
                           {item.nome_cientifico}
                         </p>
                       </div>

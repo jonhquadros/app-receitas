@@ -240,7 +240,7 @@ export const MoreView: React.FC<MoreViewProps> = ({
         {user ? (
           <div className="space-y-3 pt-1">
             <div className="p-4 rounded-2xl bg-stone-50 dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 space-y-1">
-              <p className="text-[13px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+              <p className="text-[14px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
                 E-mail conectado
               </p>
               <p className="text-[16px] font-semibold text-stone-900 dark:text-stone-100 break-all">
@@ -312,7 +312,7 @@ export const MoreView: React.FC<MoreViewProps> = ({
 
         <div className="p-4 rounded-2xl bg-stone-50 dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 space-y-2">
           <div className="flex items-baseline justify-between">
-            <span className="text-[13px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+            <span className="text-[14px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
               Plano Atual
             </span>
             <span className="text-[15px] font-bold text-stone-900 dark:text-stone-100">
@@ -330,7 +330,7 @@ export const MoreView: React.FC<MoreViewProps> = ({
 
           {subscription?.currentPeriodEnd && (
             <div className="flex items-baseline justify-between pt-1 border-t border-stone-200/60 dark:border-stone-800">
-              <span className="text-[13px] font-medium text-stone-500 dark:text-stone-400">
+              <span className="text-[14px] font-medium text-stone-500 dark:text-stone-400">
                 Próxima Cobrança / Validade:
               </span>
               <span className="text-[14px] font-semibold text-stone-800 dark:text-stone-200">

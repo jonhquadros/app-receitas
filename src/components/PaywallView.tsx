@@ -231,7 +231,7 @@ export const PaywallView: React.FC<PaywallViewProps> = ({
                   /ano
                 </span>
               </div>
-              <p className="text-[13px] font-bold text-emerald-800 dark:text-emerald-300 mt-0.5">
+              <p className="text-[14px] font-bold text-emerald-800 dark:text-emerald-300 mt-0.5">
                 Equivale a apenas R$ 8,08 por mês
               </p>
             </div>

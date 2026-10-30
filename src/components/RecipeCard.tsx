@@ -25,7 +25,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
   if (featured) {
     return (
       <div
-        onClick={() => onSelect(recipe)}
+        onClick={() => onSelect(recipe)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onSelect(recipe); } }}
         className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-800 to-emerald-950 dark:from-emerald-900 dark:to-stone-950 text-white p-6 shadow-md border border-emerald-700/50 cursor-pointer active:scale-[0.99] transition-transform group"
       >
         <div className="flex items-center justify-between gap-2 mb-3">
@@ -77,13 +77,13 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
 
   return (
     <div
-      onClick={() => onSelect(recipe)}
+      onClick={() => onSelect(recipe)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onSelect(recipe); } }}
       className="p-5 rounded-2xl bg-white dark:bg-[#1E2220] border border-stone-200 dark:border-stone-800/80 shadow-xs hover:border-emerald-500 dark:hover:border-emerald-600 transition-all cursor-pointer active:scale-[0.99] group flex flex-col justify-between min-h-[175px]"
     >
       <div>
         <div className="flex items-start justify-between gap-3 mb-2">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="px-2.5 py-1 rounded-lg bg-stone-100 dark:bg-stone-800 text-[13px] font-bold text-stone-700 dark:text-stone-300">
+            <span className="px-2.5 py-1 rounded-lg bg-stone-100 dark:bg-stone-800 text-[14px] font-bold text-stone-700 dark:text-stone-300">
               {recipe.code}
             </span>
             <span className="text-[14px] font-semibold text-emerald-800 dark:text-emerald-400">
