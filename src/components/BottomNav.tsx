@@ -42,7 +42,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
                   isActive ? 'scale-110 stroke-[2.5]' : 'stroke-[2]'
                 }`}
               />
-              <span className="text-[13px] tracking-tight mt-1 leading-none">{tab.label}</span>
+              <span className="text-[14px] tracking-tight mt-1 leading-none">{tab.label}</span>
             </button>
           );
         })}
