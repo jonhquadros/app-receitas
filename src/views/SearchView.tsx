@@ -182,6 +182,7 @@ export const SearchView: React.FC<SearchViewProps> = ({
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat === 'Todas' ? '' : cat)}
+                  aria-pressed={isSelected}
                   className={`px-3 py-2.5 rounded-xl font-bold text-[15px] min-h-[52px] active:scale-95 transition-all text-center flex items-center justify-center border-2 ${
                     isSelected
                       ? 'bg-emerald-700 text-white dark:bg-emerald-600 border-emerald-700 dark:border-emerald-600 shadow-xs'
@@ -210,6 +211,7 @@ export const SearchView: React.FC<SearchViewProps> = ({
                 <button
                   key={opt.id}
                   onClick={() => setSelectedTime(opt.id)}
+                  aria-pressed={isSelected}
                   className={`p-2.5 rounded-xl font-bold text-[15px] min-h-[52px] active:scale-95 transition-all text-center flex flex-col items-center justify-center border-2 ${
                     isSelected
                       ? 'bg-emerald-700 text-white dark:bg-emerald-600 border-emerald-700 dark:border-emerald-600 shadow-xs'
@@ -267,10 +269,10 @@ export const SearchView: React.FC<SearchViewProps> = ({
               🔍
             </div>
             <h3 className="text-[20px] font-bold text-stone-900 dark:text-stone-100">
-              Não encontramos. Tente outra palavra, como o nome de um ingrediente.
+              Nenhuma receita encontrada
             </h3>
             <p className="text-[16px] text-stone-600 dark:text-stone-400 max-w-md mx-auto leading-relaxed">
-              Dica: Experimente buscar por{' '}
+              Tente outra palavra, como o nome de um ingrediente. Experimente buscar por{' '}
               <strong className="text-emerald-800 dark:text-emerald-400">gengibre</strong>,{' '}
               <strong className="text-emerald-800 dark:text-emerald-400">erva-doce</strong>,{' '}
               <strong className="text-emerald-800 dark:text-emerald-400">hortelã</strong> ou{' '}
