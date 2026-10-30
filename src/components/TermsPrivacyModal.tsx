@@ -39,7 +39,7 @@ export const TermsPrivacyModal: React.FC<TermsPrivacyModalProps> = ({
               <h2 className="text-[20px] sm:text-[22px] font-bold text-stone-900 dark:text-stone-100">
                 Termos e Privacidade
               </h2>
-              <p className="text-[13px] text-stone-500 dark:text-stone-400">
+              <p className="text-[14px] text-stone-500 dark:text-stone-400">
                 Linguagem simples, transparência e conformidade com a LGPD
               </p>
             </div>
