@@ -148,7 +148,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             {recentRecipes.map((recipe) => (
               <div
                 key={`recent-${recipe.id}`}
-                onClick={() => onSelectRecipe(recipe)}
+                onClick={() => onSelectRecipe(recipe)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onSelectRecipe(recipe); } }}
                 className="p-4 rounded-2xl bg-white dark:bg-[#1E2220] border border-stone-200 dark:border-stone-800 hover:border-emerald-500 dark:hover:border-emerald-600 transition-all cursor-pointer active:scale-[0.99] flex items-center justify-between min-h-[64px] shadow-xs"
               >
                 <div className="min-w-0 pr-3">
