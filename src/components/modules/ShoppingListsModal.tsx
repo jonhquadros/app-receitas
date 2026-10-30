@@ -107,7 +107,7 @@ export const ShoppingListsModal: React.FC<ShoppingListsModalProps> = ({
               <h2 className="text-[20px] sm:text-[22px] font-bold text-stone-900 dark:text-stone-100">
                 Listas de Compras
               </h2>
-              <p className="text-[13px] text-stone-500 dark:text-stone-400">
+              <p className="text-[14px] text-stone-500 dark:text-stone-400">
                 Organize sua feira ou despensa com marcação interativa
               </p>
             </div>
@@ -150,7 +150,7 @@ export const ShoppingListsModal: React.FC<ShoppingListsModalProps> = ({
               <h3 className="text-[18px] font-bold text-stone-900 dark:text-stone-100">
                 {currentList.titulo}
               </h3>
-              <span className="text-[13px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
+              <span className="text-[14px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
                 {boughtItems} de {totalItems} comprados
               </span>
             </div>
@@ -161,7 +161,7 @@ export const ShoppingListsModal: React.FC<ShoppingListsModalProps> = ({
             {boughtItems > 0 && (
               <button
                 onClick={handleClearCurrent}
-                className="text-[13px] font-bold text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 flex items-center gap-1.5 pt-1 transition-colors"
+                className="text-[14px] font-bold text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 flex items-center gap-1.5 pt-1 transition-colors"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Desmarcar itens desta lista</span>
@@ -222,7 +222,7 @@ export const ShoppingListsModal: React.FC<ShoppingListsModalProps> = ({
                               </span>
                             </div>
                             {item.observacao && (
-                              <p className="text-[13px] text-stone-500 dark:text-stone-400">
+                              <p className="text-[14px] text-stone-500 dark:text-stone-400">
                                 {item.observacao}
                               </p>
                             )}
