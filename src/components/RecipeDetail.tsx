@@ -105,7 +105,7 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack }) =>
                 favorited ? 'fill-red-500 text-red-500' : 'stroke-[2.2]'
               }`}
             />
-            <span className="text-[13px] sm:text-[15px] whitespace-nowrap">{favorited ? 'Salvo' : 'Salvar'}</span>
+            <span className="text-[14px] sm:text-[15px] whitespace-nowrap">{favorited ? 'Salvo' : 'Salvar'}</span>
           </button>
         </div>
       </div>
@@ -201,7 +201,7 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack }) =>
                         setSelectedGuideIngredientId(ingredientMatch.id);
                         setIsIngredientGuideOpen(true);
                       }}
-                      className="inline-flex items-center gap-1.5 mt-1.5 px-2.5 py-1 rounded-lg text-[13px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100/80 hover:bg-emerald-200 dark:bg-emerald-950/80 dark:hover:bg-emerald-900/80 border border-emerald-300/60 dark:border-emerald-800 transition-colors"
+                      className="inline-flex items-center gap-1.5 mt-1.5 px-2.5 py-1 rounded-lg text-[14px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100/80 hover:bg-emerald-200 dark:bg-emerald-950/80 dark:hover:bg-emerald-900/80 border border-emerald-300/60 dark:border-emerald-800 transition-colors"
                       title={`Abrir Guia de Ingredientes para ${ingredientMatch.name}`}
                     >
                       <BookOpen className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -290,7 +290,7 @@ export const RecipeDetail: React.FC<RecipeDetailProps> = ({ recipe, onBack }) =>
                         setSelectedGuideTechniqueId(techniqueMatch.id);
                         setIsTechniqueGuideOpen(true);
                       }}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[13px] font-bold text-teal-800 dark:text-teal-300 bg-teal-100/80 hover:bg-teal-200 dark:bg-teal-950/80 dark:hover:bg-teal-900/80 border border-teal-300/60 dark:border-teal-800 transition-colors"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[14px] font-bold text-teal-800 dark:text-teal-300 bg-teal-100/80 hover:bg-teal-200 dark:bg-teal-950/80 dark:hover:bg-teal-900/80 border border-teal-300/60 dark:border-teal-800 transition-colors"
                       title={`Ver técnica ${techniqueMatch.name} no Guia`}
                     >
                       <Flame className="w-3.5 h-3.5 stroke-[2.5]" />
