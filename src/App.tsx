@@ -371,9 +371,11 @@ function AppContent() {
                   Admin
                 </button>
               )}
-              <div className="text-[13px] font-bold text-emerald-800 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/80 px-3 py-1.5 rounded-full border border-emerald-300/40 dark:border-emerald-800/40">
-                350 receitas
-              </div>
+              {recipes.length > 0 && (
+                <div className="text-[14px] font-bold text-emerald-800 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/80 px-3 py-1.5 rounded-full border border-emerald-300/40 dark:border-emerald-800/40">
+                  {recipes.length} receitas
+                </div>
+              )}
             </div>
           )}
         </div>
