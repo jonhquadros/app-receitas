@@ -112,6 +112,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
       {/* Big Top Search Button / Input Trigger */}
       <div
         onClick={() => onOpenSearch()}
+        onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onOpenSearch(); } }}
         className="flex items-center gap-3 p-4 min-h-[62px] rounded-2xl bg-white dark:bg-[#1E2220] border-2 border-emerald-600/40 dark:border-emerald-600/50 hover:border-emerald-600 text-stone-600 dark:text-stone-400 cursor-pointer shadow-xs active:scale-[0.99] transition-all"
         role="button"
         tabIndex={0}
@@ -138,7 +139,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               <History className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
               <span>Vistas recentemente</span>
             </h2>
-            <span className="text-[13px] font-bold text-stone-500 dark:text-stone-400">
+            <span className="text-[14px] font-bold text-stone-500 dark:text-stone-400">
               Últimas {recentRecipes.length}
             </span>
           </div>
@@ -151,7 +152,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 className="p-4 rounded-2xl bg-white dark:bg-[#1E2220] border border-stone-200 dark:border-stone-800 hover:border-emerald-500 dark:hover:border-emerald-600 transition-all cursor-pointer active:scale-[0.99] flex items-center justify-between min-h-[64px] shadow-xs"
               >
                 <div className="min-w-0 pr-3">
-                  <div className="flex items-center gap-2 text-[13px] font-bold text-emerald-800 dark:text-emerald-400">
+                  <div className="flex items-center gap-2 text-[14px] font-bold text-emerald-800 dark:text-emerald-400">
                     <span>{recipe.code}</span>
                     <span>•</span>
                     <span className="truncate">{recipe.categoryDisplay}</span>
@@ -162,7 +163,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0 text-stone-500 dark:text-stone-400">
-                  <span className="text-[13px] font-medium hidden sm:inline">
+                  <span className="text-[14px] font-medium hidden sm:inline">
                     {recipe.totalTimeDisplay}
                   </span>
                   <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 flex items-center justify-center">
@@ -215,7 +216,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                     <h3 className="text-[19px] font-bold text-stone-900 dark:text-stone-100 truncate group-hover:text-emerald-800 dark:group-hover:text-emerald-400">
                       {cat.name}
                     </h3>
-                    <span className="text-[13px] font-bold text-stone-600 dark:text-stone-400">
+                    <span className="text-[14px] font-bold text-stone-600 dark:text-stone-400">
                       {count} {count === 1 ? 'receita' : 'receitas'}
                     </span>
                   </div>
