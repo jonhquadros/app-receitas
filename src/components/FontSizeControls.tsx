@@ -26,7 +26,7 @@ export const FontSizeControls: React.FC<FontSizeControlsProps> = ({ compact = fa
           </div>
         </button>
 
-        <span className="px-1 text-[13px] font-bold text-stone-700 dark:text-stone-300 min-w-[55px] text-center select-none">
+        <span className="px-1 text-[14px] font-bold text-stone-700 dark:text-stone-300 min-w-[55px] text-center select-none">
           {fontScaleLabel}
         </span>
 
