@@ -304,7 +304,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onBack }) => {
           <span>Voltar para Mais</span>
         </button>
 
-        <span className="px-3 py-1 rounded-full text-[13px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-800/60 flex items-center gap-1.5">
+        <span className="px-3 py-1 rounded-full text-[14px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-800/60 flex items-center gap-1.5">
           <ShieldCheck className="w-4 h-4 text-emerald-700" />
           Área do Administrador
         </span>
@@ -460,7 +460,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onBack }) => {
                       {!isCurrentUser && (
                         <button
                           onClick={() => handleToggleRole(item)}
-                          className="px-3.5 py-2 rounded-xl text-[13px] font-bold bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 flex items-center gap-1.5 transition-colors"
+                          className="px-3.5 py-2 rounded-xl text-[14px] font-bold bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 flex items-center gap-1.5 transition-colors"
                         >
                           {isItemAdmin ? (
                             <>
@@ -479,7 +479,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onBack }) => {
                       {/* Liberar / Revogar Acesso */}
                       <button
                         onClick={() => handleToggleAccess(item)}
-                        className={`px-3.5 py-2 rounded-xl text-[13px] font-bold flex items-center gap-1.5 transition-colors ${
+                        className={`px-3.5 py-2 rounded-xl text-[14px] font-bold flex items-center gap-1.5 transition-colors ${
                           isAccessActive
                             ? 'bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-300'
                             : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300'
@@ -575,7 +575,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onBack }) => {
                     {parsedRecipes.length} receita(s) pronta(s) para importação
                   </span>
                 </div>
-                <span className="text-[13px] bg-emerald-200/60 dark:bg-emerald-900/60 px-2.5 py-1 rounded-full font-bold">
+                <span className="text-[14px] bg-emerald-200/60 dark:bg-emerald-900/60 px-2.5 py-1 rounded-full font-bold">
                   Válido
                 </span>
               </div>
@@ -630,7 +630,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onBack }) => {
                 {importResult.errors.length > 0 && (
                   <div className="space-y-1 pt-1">
                     <p className="font-bold">Erros registrados:</p>
-                    <ul className="list-disc list-inside text-[13px] space-y-0.5">
+                    <ul className="list-disc list-inside text-[14px] space-y-0.5">
                       {importResult.errors.slice(0, 5).map((e, idx) => (
                         <li key={idx}>{e}</li>
                       ))}
