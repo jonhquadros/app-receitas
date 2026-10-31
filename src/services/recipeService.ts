@@ -109,7 +109,7 @@ export async function searchRecipesPaginated(
       .order('numero', { ascending: true });
 
     if (options.category && options.category !== 'Todas') {
-      queryBuilder = queryBuilder.ilike('categoria', `%\${options.category}%`);
+      queryBuilder = queryBuilder.ilike('categoria', `%${options.category}%`);
     }
 
     if (options.maxMinutes) {
@@ -119,7 +119,7 @@ export async function searchRecipesPaginated(
     if (options.query && options.query.trim().length >= 2) {
       const cleanQ = options.query.trim();
       queryBuilder = queryBuilder.or(
-        `titulo.ilike.%\${cleanQ}%,uso_tradicional.ilike.%\${cleanQ}%,categoria.ilike.%\${cleanQ}%`
+        `titulo.ilike.%${cleanQ}%,uso_tradicional.ilike.%${cleanQ}%,categoria.ilike.%${cleanQ}%`
       );
     }
 
