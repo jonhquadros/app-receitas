@@ -10,13 +10,13 @@ import {
   ShieldCheck,
   RefreshCw,
   ChevronRight,
-  AlertCircle,
   Zap,
 } from 'lucide-react';
 import { Recipe } from '../types/recipe';
 import { useAuth } from '../context/AuthContext';
-import { useSubscription, STRIPE_PRICES } from '../context/SubscriptionContext';
+import { useSubscription } from '../context/SubscriptionContext';
 import { AuthModal } from './AuthModal';
+import { PixCheckoutModal } from './PixCheckoutModal';
 
 interface PaywallViewProps {
   onOpenAccount: () => void;
@@ -26,13 +26,7 @@ export const PaywallView: React.FC<PaywallViewProps> = ({
   onOpenAccount,
 }) => {
   const { user } = useAuth();
-  const {
-    startCheckout,
-    checkSubscriptionStatus,
-    isCheckingOut,
-    checkoutError,
-    setCheckoutError,
-  } = useSubscription();
+  const { checkSubscriptionStatus } = useSubscription();
 
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifyMessage, setVerifyMessage] = useState<{ text: string; isSuccess?: boolean } | null>(
@@ -40,14 +34,15 @@ export const PaywallView: React.FC<PaywallViewProps> = ({
   );
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [selectedPlanForAuth, setSelectedPlanForAuth] = useState<'mensal' | 'anual'>('anual');
+  const [checkoutPlan, setCheckoutPlan] = useState<'mensal' | 'anual' | null>(null);
 
-  const handleSubscribe = async (plan: 'mensal' | 'anual') => {
+  const handleSubscribe = (plan: 'mensal' | 'anual') => {
     if (!user) {
       setSelectedPlanForAuth(plan);
       setIsAuthModalOpen(true);
       return;
     }
-    await startCheckout(plan);
+    setCheckoutPlan(plan);
   };
 
   // Botão 9: "Já paguei e não liberou"
@@ -141,23 +136,6 @@ export const PaywallView: React.FC<PaywallViewProps> = ({
         )}
       </div>
 
-      {/* Erro de Checkout se houver */}
-      {checkoutError && (
-        <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200 text-[14px] flex items-start gap-2.5">
-          <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-          <div className="flex-1 space-y-1">
-            <p className="font-bold">Aviso sobre o pagamento:</p>
-            <p>{checkoutError}</p>
-          </div>
-          <button
-            onClick={() => setCheckoutError(null)}
-            className="text-rose-500 font-bold hover:text-rose-800"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
       {/* DOIS CARTÕES GRANDES: MENSAL E ANUAL */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* CARTÃO 1: PLANO MENSAL */}
@@ -178,7 +156,7 @@ export const PaywallView: React.FC<PaywallViewProps> = ({
               </h2>
               <div className="flex items-baseline gap-1 mt-1">
                 <span className="text-[32px] font-black text-stone-900 dark:text-stone-100">
-                  R$ 19,90
+                  R$ 9,90
                 </span>
                 <span className="text-[15px] font-bold text-stone-500 dark:text-stone-400">
                   /mês
@@ -187,13 +165,12 @@ export const PaywallView: React.FC<PaywallViewProps> = ({
             </div>
 
             <p className="text-[14px] text-stone-600 dark:text-stone-400 leading-relaxed">
-              Renovação mensal automática. Cancele a qualquer momento sem nenhuma burocracia ou multa.
+              Renovação mensal automática via Pix. Cancele a qualquer momento pelo app, sem multa.
             </p>
           </div>
 
           <button
             onClick={() => handleSubscribe('mensal')}
-            disabled={isCheckingOut}
             className="w-full min-h-[52px] rounded-2xl bg-stone-900 hover:bg-black dark:bg-stone-100 dark:hover:bg-white text-white dark:text-stone-950 font-bold text-[16px] flex items-center justify-center gap-2 shadow-xs transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50"
           >
             <span>Assinar Mensal</span>
@@ -206,7 +183,7 @@ export const PaywallView: React.FC<PaywallViewProps> = ({
           {/* Badge de Economia em Destaque */}
           <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-emerald-600 text-white font-extrabold text-[12px] uppercase tracking-wider shadow-sm flex items-center gap-1 whitespace-nowrap">
             <Zap className="w-3.5 h-3.5 fill-white" />
-            <span>Economize R$ 141,80 / ano</span>
+            <span>Economize R$ 29,80 / ano</span>
           </div>
 
           <div className="space-y-3 pt-1">
@@ -215,7 +192,7 @@ export const PaywallView: React.FC<PaywallViewProps> = ({
                 Melhor Escolha
               </span>
               <span className="text-[12px] font-extrabold px-2.5 py-1 rounded-full bg-emerald-600 text-white">
-                59% DE DESCONTO
+                25% DE DESCONTO
               </span>
             </div>
 
@@ -225,25 +202,24 @@ export const PaywallView: React.FC<PaywallViewProps> = ({
               </h2>
               <div className="flex items-baseline gap-1 mt-1">
                 <span className="text-[32px] font-black text-emerald-950 dark:text-emerald-300">
-                  R$ 97,00
+                  R$ 89,00
                 </span>
                 <span className="text-[15px] font-bold text-emerald-800 dark:text-emerald-400">
                   /ano
                 </span>
               </div>
               <p className="text-[14px] font-bold text-emerald-800 dark:text-emerald-300 mt-0.5">
-                Equivale a apenas R$ 8,08 por mês
+                Equivale a apenas R$ 7,42 por mês
               </p>
             </div>
 
             <p className="text-[14px] text-stone-700 dark:text-stone-300 leading-relaxed">
-              12 meses de acesso completo garantido pagando menos da metade do valor de 12 meses avulsos.
+              12 meses de acesso completo pagando menos do que 12 mensalidades avulsas.
             </p>
           </div>
 
           <button
             onClick={() => handleSubscribe('anual')}
-            disabled={isCheckingOut}
             className="w-full min-h-[54px] rounded-2xl bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-extrabold text-[17px] flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50"
           >
             <span>Assinar Plano Anual</span>
@@ -260,7 +236,7 @@ export const PaywallView: React.FC<PaywallViewProps> = ({
         </div>
 
         <p className="text-[14px] text-stone-600 dark:text-stone-400 leading-relaxed">
-          Se você realizou o pagamento pelo cartão ou Stripe e a liberação ainda não apareceu na tela, clique no botão abaixo para verificar a sincronização imediata com o banco de dados.
+          Se você pagou o Pix e a liberação ainda não apareceu na tela, clique no botão abaixo para verificar a sincronização imediata com o banco de dados.
         </p>
 
         {/* Mensagem de Verificação */}
@@ -299,6 +275,14 @@ export const PaywallView: React.FC<PaywallViewProps> = ({
           </a>
         </div>
       </section>
+
+      {checkoutPlan && (
+        <PixCheckoutModal
+          isOpen={checkoutPlan !== null}
+          plan={checkoutPlan}
+          onClose={() => setCheckoutPlan(null)}
+        />
+      )}
 
       {/* Auth Modal quando usuário não logado clica em assinar */}
       <AuthModal

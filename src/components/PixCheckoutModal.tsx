@@ -1,0 +1,305 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { PLANS } from '../types/subscription';
+import { useAuth } from '../context/AuthContext';
+import { useSubscription, PixSubscriptionForm } from '../context/SubscriptionContext';
+
+interface PixCheckoutModalProps {
+  isOpen: boolean;
+  plan: 'mensal' | 'anual';
+  onClose: () => void;
+}
+
+type Step = 'form' | 'pix' | 'done';
+
+const POLL_INTERVAL_MS = 5000;
+const POLL_TIMEOUT_MS = 15 * 60 * 1000;
+
+const emptyAddress = { zip_code: '', street: '', street_number: '', neighborhood: '', city: '', state: '' };
+
+export const PixCheckoutModal: React.FC<PixCheckoutModalProps> = ({ isOpen, plan, onClose }) => {
+  const { user } = useAuth();
+  const { createSubscription, checkSubscriptionStatus } = useSubscription();
+
+  const [step, setStep] = useState<Step>('form');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [docType, setDocType] = useState<'cpf' | 'cnpj'>('cpf');
+  const [docNumber, setDocNumber] = useState('');
+  const [address, setAddress] = useState(emptyAddress);
+  const [consent, setConsent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pixCode, setPixCode] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  // Um identificador novo por abertura: retentativas reenviam o mesmo, mas uma nova compra gera outro
+  const requestIdRef = useRef<string>('');
+  const pollStartRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (isOpen) {
+      requestIdRef.current = crypto.randomUUID();
+      setStep('form');
+      setError(null);
+      setPixCode(null);
+      setCopied(false);
+      setName(user?.user_metadata?.full_name ?? '');
+      setEmail(user?.email ?? '');
+    }
+  }, [isOpen, user]);
+
+  // Acompanha a confirmação do pagamento até a assinatura ficar ativa
+  useEffect(() => {
+    if (step !== 'pix') return;
+    pollStartRef.current = Date.now();
+    const id = window.setInterval(async () => {
+      if (Date.now() - pollStartRef.current > POLL_TIMEOUT_MS) {
+        window.clearInterval(id);
+        return;
+      }
+      const sub = await checkSubscriptionStatus();
+      if (sub?.status === 'active') {
+        window.clearInterval(id);
+        setStep('done');
+      }
+    }, POLL_INTERVAL_MS);
+    return () => window.clearInterval(id);
+  }, [step, checkSubscriptionStatus]);
+
+  if (!isOpen) return null;
+
+  const setAddr = (field: keyof typeof emptyAddress, value: string) =>
+    setAddress((prev) => ({ ...prev, [field]: value }));
+
+  const validateLocal = (): string | null => {
+    if (name.trim().length < 3) return 'Informe seu nome completo.';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Informe um e-mail válido.';
+    if (phone.replace(/\D/g, '').length < 10) return 'Informe um telefone com DDD.';
+    if (docNumber.replace(/\D/g, '').length < 11) return docType === 'cpf' ? 'Informe seu CPF.' : 'Informe seu CNPJ.';
+    if (address.zip_code.replace(/\D/g, '').length !== 8) return 'Informe um CEP com 8 números.';
+    if (!address.street.trim() || !address.street_number.trim() || !address.neighborhood.trim() || !address.city.trim()) {
+      return 'Preencha o endereço completo.';
+    }
+    if (address.state.trim().length !== 2) return 'Informe a UF com 2 letras.';
+    if (!consent) return 'Confirme a autorização de cobrança para continuar.';
+    return null;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const message = validateLocal();
+    if (message) {
+      setError(message);
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+
+    const form: PixSubscriptionForm = {
+      plan,
+      client_request_id: requestIdRef.current,
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      phone: phone.replace(/\D/g, ''),
+      document: { type: docType, number: docNumber.replace(/\D/g, '') },
+      address: {
+        zip_code: address.zip_code.replace(/\D/g, ''),
+        street: address.street.trim(),
+        street_number: address.street_number.trim(),
+        neighborhood: address.neighborhood.trim(),
+        city: address.city.trim(),
+        state: address.state.trim().toUpperCase(),
+      },
+    };
+
+    try {
+      const result = await createSubscription(form);
+      if (result.status === 'active') {
+        setStep('done');
+        return;
+      }
+      setPixCode(result.pixQrcode);
+      setStep('pix');
+    } catch (err: any) {
+      setError(err?.message || 'Não foi possível gerar o Pix. Tente novamente.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCopy = async () => {
+    if (!pixCode) return;
+    try {
+      await navigator.clipboard.writeText(pixCode);
+      setCopied(true);
+    } catch {
+      setError('Não foi possível copiar. Selecione o código e copie manualmente.');
+    }
+  };
+
+  const inputClass =
+    'w-full min-h-[48px] px-3.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-950 text-[16px] text-stone-900 dark:text-stone-100';
+  const labelClass = 'block text-[15px] font-bold text-stone-800 dark:text-stone-200 mb-1';
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pix-checkout-title"
+        onClick={(e) => e.stopPropagation()}
+        className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white dark:bg-stone-900 p-6 shadow-xl space-y-5"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 id="pix-checkout-title" className="text-[22px] font-extrabold text-stone-900 dark:text-stone-100">
+              {step === 'done' ? 'Assinatura confirmada' : `Assinar ${PLANS[plan].name}`}
+            </h2>
+            <p className="text-[15px] text-stone-600 dark:text-stone-400">
+              {PLANS[plan].priceFormatted} {PLANS[plan].period}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fechar"
+            className="min-h-[44px] min-w-[44px] text-stone-500 hover:text-stone-900 dark:hover:text-stone-100 font-bold text-[18px]"
+          >
+            ✕
+          </button>
+        </div>
+
+        {step === 'form' && (
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            <div>
+              <label htmlFor="pix-name" className={labelClass}>Nome completo</label>
+              <input id="pix-name" className={inputClass} value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
+            </div>
+            <div>
+              <label htmlFor="pix-email" className={labelClass}>E-mail</label>
+              <input id="pix-email" type="email" className={inputClass} value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+            </div>
+            <div>
+              <label htmlFor="pix-phone" className={labelClass}>Telefone com DDD</label>
+              <input id="pix-phone" type="tel" inputMode="tel" className={inputClass} value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" placeholder="11 98765-4321" />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-1">
+                <label htmlFor="pix-doc-type" className={labelClass}>Documento</label>
+                <select id="pix-doc-type" className={inputClass} value={docType} onChange={(e) => setDocType(e.target.value as 'cpf' | 'cnpj')}>
+                  <option value="cpf">CPF</option>
+                  <option value="cnpj">CNPJ</option>
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label htmlFor="pix-doc" className={labelClass}>{docType === 'cpf' ? 'Número do CPF' : 'Número do CNPJ'}</label>
+                <input id="pix-doc" inputMode="numeric" className={inputClass} value={docNumber} onChange={(e) => setDocNumber(e.target.value)} />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-1">
+                <label htmlFor="pix-zip" className={labelClass}>CEP</label>
+                <input id="pix-zip" inputMode="numeric" className={inputClass} value={address.zip_code} onChange={(e) => setAddr('zip_code', e.target.value)} autoComplete="postal-code" />
+              </div>
+              <div className="col-span-2">
+                <label htmlFor="pix-street" className={labelClass}>Rua</label>
+                <input id="pix-street" className={inputClass} value={address.street} onChange={(e) => setAddr('street', e.target.value)} autoComplete="address-line1" />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-1">
+                <label htmlFor="pix-number" className={labelClass}>Número</label>
+                <input id="pix-number" className={inputClass} value={address.street_number} onChange={(e) => setAddr('street_number', e.target.value)} />
+              </div>
+              <div className="col-span-2">
+                <label htmlFor="pix-neighborhood" className={labelClass}>Bairro</label>
+                <input id="pix-neighborhood" className={inputClass} value={address.neighborhood} onChange={(e) => setAddr('neighborhood', e.target.value)} />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-2">
+                <label htmlFor="pix-city" className={labelClass}>Cidade</label>
+                <input id="pix-city" className={inputClass} value={address.city} onChange={(e) => setAddr('city', e.target.value)} autoComplete="address-level2" />
+              </div>
+              <div className="col-span-1">
+                <label htmlFor="pix-state" className={labelClass}>UF</label>
+                <input id="pix-state" maxLength={2} className={inputClass} value={address.state} onChange={(e) => setAddr('state', e.target.value)} />
+              </div>
+            </div>
+
+            <label className="flex items-start gap-3 text-[14px] text-stone-700 dark:text-stone-300">
+              <input type="checkbox" className="mt-1 w-5 h-5" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+              <span>
+                Autorizo o uso destes dados para emitir a cobrança e gerenciar minha assinatura, conforme a política de privacidade. Entendo que a cobrança por Pix Automático é renovada no intervalo do plano, e que posso cancelar quando quiser.
+              </span>
+            </label>
+
+            {error && (
+              <p role="alert" className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-900 dark:text-rose-200 text-[14px] font-medium">
+                {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full min-h-[52px] rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-[17px] disabled:opacity-50"
+            >
+              {submitting ? 'Gerando Pix...' : 'Gerar código Pix'}
+            </button>
+          </form>
+        )}
+
+        {step === 'pix' && (
+          <div className="space-y-4">
+            <p className="text-[16px] text-stone-800 dark:text-stone-200">
+              Copie o código abaixo e pague pelo app do seu banco, na opção Pix Copia e Cola. Seu acesso é liberado automaticamente após a confirmação.
+            </p>
+            {pixCode ? (
+              <>
+                <textarea
+                  readOnly
+                  aria-label="Código Pix copia e cola"
+                  value={pixCode}
+                  rows={4}
+                  className="w-full p-3 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-950 text-[13px] font-mono break-all"
+                />
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  className="w-full min-h-[52px] rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-[17px]"
+                >
+                  {copied ? 'Código copiado' : 'Copiar código Pix'}
+                </button>
+              </>
+            ) : (
+              <p className="text-[15px] text-stone-700 dark:text-stone-300">
+                O código Pix não foi recebido. Feche e tente novamente, ou fale com o suporte.
+              </p>
+            )}
+            <p className="text-[14px] text-stone-600 dark:text-stone-400">Aguardando a confirmação do pagamento...</p>
+            {error && (
+              <p role="alert" className="text-[14px] text-rose-700 dark:text-rose-300">{error}</p>
+            )}
+          </div>
+        )}
+
+        {step === 'done' && (
+          <div className="space-y-4">
+            <p className="text-[16px] text-stone-800 dark:text-stone-200">
+              Pagamento confirmado! Seu acesso completo já está liberado.
+            </p>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full min-h-[52px] rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-[17px]"
+            >
+              Ver as receitas
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
