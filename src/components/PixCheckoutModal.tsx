@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import QRCode from 'qrcode';
 import { PLANS } from '../types/subscription';
 import { useAuth } from '../context/AuthContext';
 import { useSubscription, PixSubscriptionForm } from '../context/SubscriptionContext';
@@ -10,6 +11,7 @@ interface PixCheckoutModalProps {
 }
 
 type Step = 'form' | 'pix' | 'done';
+type CepStatus = 'idle' | 'loading' | 'found' | 'notfound';
 
 const POLL_INTERVAL_MS = 5000;
 const POLL_TIMEOUT_MS = 15 * 60 * 1000;
@@ -22,20 +24,22 @@ export const PixCheckoutModal: React.FC<PixCheckoutModalProps> = ({ isOpen, plan
 
   const [step, setStep] = useState<Step>('form');
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [docType, setDocType] = useState<'cpf' | 'cnpj'>('cpf');
   const [docNumber, setDocNumber] = useState('');
   const [address, setAddress] = useState(emptyAddress);
+  const [cepStatus, setCepStatus] = useState<CepStatus>('idle');
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pixCode, setPixCode] = useState<string | null>(null);
+  const [qrImage, setQrImage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   // Um identificador novo por abertura: retentativas reenviam o mesmo, mas uma nova compra gera outro
   const requestIdRef = useRef<string>('');
   const pollStartRef = useRef<number>(0);
+  const lastCepRef = useRef<string>('');
 
   useEffect(() => {
     if (isOpen) {
@@ -43,11 +47,23 @@ export const PixCheckoutModal: React.FC<PixCheckoutModalProps> = ({ isOpen, plan
       setStep('form');
       setError(null);
       setPixCode(null);
+      setQrImage(null);
       setCopied(false);
+      setCepStatus('idle');
       setName(user?.user_metadata?.full_name ?? '');
-      setEmail(user?.email ?? '');
     }
   }, [isOpen, user]);
+
+  // Gera a imagem do QR Code a partir do texto copia e cola devolvido pela UvviPay
+  useEffect(() => {
+    if (!pixCode) {
+      setQrImage(null);
+      return;
+    }
+    QRCode.toDataURL(pixCode, { width: 260, margin: 1 })
+      .then(setQrImage)
+      .catch(() => setQrImage(null));
+  }, [pixCode]);
 
   // Acompanha a confirmação do pagamento até a assinatura ficar ativa
   useEffect(() => {
@@ -67,14 +83,49 @@ export const PixCheckoutModal: React.FC<PixCheckoutModalProps> = ({ isOpen, plan
     return () => window.clearInterval(id);
   }, [step, checkSubscriptionStatus]);
 
+  // Preenche rua, bairro, cidade e UF a partir do CEP (ViaCEP). Os campos continuam editáveis.
+  const lookupCep = async (cepDigits: string) => {
+    if (cepDigits === lastCepRef.current) return;
+    lastCepRef.current = cepDigits;
+    setCepStatus('loading');
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cepDigits}/json/`);
+      const data = await response.json();
+      if (!response.ok || data?.erro) {
+        setCepStatus('notfound');
+        return;
+      }
+      setAddress((prev) => ({
+        ...prev,
+        street: data.logradouro || prev.street,
+        neighborhood: data.bairro || prev.neighborhood,
+        city: data.localidade || prev.city,
+        state: data.uf || prev.state,
+      }));
+      setCepStatus('found');
+    } catch {
+      setCepStatus('notfound');
+    }
+  };
+
+  useEffect(() => {
+    const digits = address.zip_code.replace(/\D/g, '');
+    if (digits.length === 8) {
+      lookupCep(digits);
+    } else {
+      lastCepRef.current = '';
+      setCepStatus('idle');
+    }
+  }, [address.zip_code]);
+
   if (!isOpen) return null;
 
   const setAddr = (field: keyof typeof emptyAddress, value: string) =>
     setAddress((prev) => ({ ...prev, [field]: value }));
 
   const validateLocal = (): string | null => {
+    if (!user?.email) return 'Faça login para continuar.';
     if (name.trim().length < 3) return 'Informe seu nome completo.';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Informe um e-mail válido.';
     if (phone.replace(/\D/g, '').length < 10) return 'Informe um telefone com DDD.';
     if (docNumber.replace(/\D/g, '').length < 11) return docType === 'cpf' ? 'Informe seu CPF.' : 'Informe seu CNPJ.';
     if (address.zip_code.replace(/\D/g, '').length !== 8) return 'Informe um CEP com 8 números.';
@@ -100,7 +151,7 @@ export const PixCheckoutModal: React.FC<PixCheckoutModalProps> = ({ isOpen, plan
       plan,
       client_request_id: requestIdRef.current,
       name: name.trim(),
-      email: email.trim().toLowerCase(),
+      email: (user?.email ?? '').trim().toLowerCase(),
       phone: phone.replace(/\D/g, ''),
       document: { type: docType, number: docNumber.replace(/\D/g, '') },
       address: {
@@ -177,10 +228,6 @@ export const PixCheckoutModal: React.FC<PixCheckoutModalProps> = ({ isOpen, plan
               <input id="pix-name" className={inputClass} value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
             </div>
             <div>
-              <label htmlFor="pix-email" className={labelClass}>E-mail</label>
-              <input id="pix-email" type="email" className={inputClass} value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
-            </div>
-            <div>
               <label htmlFor="pix-phone" className={labelClass}>Telefone com DDD</label>
               <input id="pix-phone" type="tel" inputMode="tel" className={inputClass} value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" placeholder="11 98765-4321" />
             </div>
@@ -203,19 +250,23 @@ export const PixCheckoutModal: React.FC<PixCheckoutModalProps> = ({ isOpen, plan
                 <input id="pix-zip" inputMode="numeric" className={inputClass} value={address.zip_code} onChange={(e) => setAddr('zip_code', e.target.value)} autoComplete="postal-code" />
               </div>
               <div className="col-span-2">
-                <label htmlFor="pix-street" className={labelClass}>Rua</label>
-                <input id="pix-street" className={inputClass} value={address.street} onChange={(e) => setAddr('street', e.target.value)} autoComplete="address-line1" />
+                <label htmlFor="pix-number" className={labelClass}>Número</label>
+                <input id="pix-number" inputMode="numeric" className={inputClass} value={address.street_number} onChange={(e) => setAddr('street_number', e.target.value)} />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-1">
-                <label htmlFor="pix-number" className={labelClass}>Número</label>
-                <input id="pix-number" className={inputClass} value={address.street_number} onChange={(e) => setAddr('street_number', e.target.value)} />
-              </div>
-              <div className="col-span-2">
-                <label htmlFor="pix-neighborhood" className={labelClass}>Bairro</label>
-                <input id="pix-neighborhood" className={inputClass} value={address.neighborhood} onChange={(e) => setAddr('neighborhood', e.target.value)} />
-              </div>
+            {cepStatus === 'loading' && (
+              <p className="text-[14px] text-stone-600 dark:text-stone-400">Buscando endereço pelo CEP...</p>
+            )}
+            {cepStatus === 'notfound' && (
+              <p className="text-[14px] text-amber-800 dark:text-amber-300">CEP não encontrado. Preencha o endereço abaixo.</p>
+            )}
+            <div>
+              <label htmlFor="pix-street" className={labelClass}>Rua</label>
+              <input id="pix-street" className={inputClass} value={address.street} onChange={(e) => setAddr('street', e.target.value)} autoComplete="address-line1" />
+            </div>
+            <div>
+              <label htmlFor="pix-neighborhood" className={labelClass}>Bairro</label>
+              <input id="pix-neighborhood" className={inputClass} value={address.neighborhood} onChange={(e) => setAddr('neighborhood', e.target.value)} />
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="col-span-2">
@@ -254,15 +305,20 @@ export const PixCheckoutModal: React.FC<PixCheckoutModalProps> = ({ isOpen, plan
         {step === 'pix' && (
           <div className="space-y-4">
             <p className="text-[16px] text-stone-800 dark:text-stone-200">
-              Copie o código abaixo e pague pelo app do seu banco, na opção Pix Copia e Cola. Seu acesso é liberado automaticamente após a confirmação.
+              Abra o app do seu banco e escolha Pix. Você pode ler o QR Code com a câmera ou copiar o código.
             </p>
+            {qrImage && (
+              <div className="flex justify-center">
+                <img src={qrImage} alt="QR Code para pagamento Pix" width={260} height={260} className="rounded-xl border border-stone-200 dark:border-stone-700 bg-white p-2" />
+              </div>
+            )}
             {pixCode ? (
               <>
                 <textarea
                   readOnly
                   aria-label="Código Pix copia e cola"
                   value={pixCode}
-                  rows={4}
+                  rows={3}
                   className="w-full p-3 rounded-xl border border-stone-300 dark:border-stone-700 bg-stone-50 dark:bg-stone-950 text-[13px] font-mono break-all"
                 />
                 <button
