@@ -44,6 +44,16 @@ export const MoreView: React.FC<MoreViewProps> = ({
   const [cancelStep, setCancelStep] = useState<'idle' | 'confirm' | 'loading'>('idle');
   const [cancelError, setCancelError] = useState<string | null>(null);
 
+  const statusLabel = hasAccess
+    ? 'ACESSO ATIVO'
+    : isPastDue
+    ? 'PAGAMENTO PENDENTE'
+    : subscription?.status === 'canceled'
+    ? 'ASSINATURA CANCELADA'
+    : subscription?.status === 'incomplete'
+    ? 'AGUARDANDO PAGAMENTO'
+    : 'SEM ASSINATURA';
+
   const canCancel = Boolean(
     subscription &&
       !subscription.manualOverride &&
@@ -328,7 +338,7 @@ export const MoreView: React.FC<MoreViewProps> = ({
                 : 'bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-400'
             }`}
           >
-            {hasAccess ? 'ACESSO ATIVO' : isPastDue ? 'PAGAMENTO PENDENTE' : 'SEM ASSINATURA'}
+            {statusLabel}
           </span>
         </div>
 
@@ -350,7 +360,7 @@ export const MoreView: React.FC<MoreViewProps> = ({
             </span>
           </div>
 
-          {subscription?.currentPeriodEnd && (
+          {hasAccess && subscription?.currentPeriodEnd && (
             <div className="flex items-baseline justify-between pt-1 border-t border-stone-200/60 dark:border-stone-800">
               <span className="text-[14px] font-medium text-stone-500 dark:text-stone-400">
                 Próxima Cobrança / Validade:
