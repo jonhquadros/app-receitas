@@ -44,14 +44,21 @@ Deno.serve(async (req) => {
   const newStatus = statusFromEvent(eventType);
   if (!newStatus) return json({ received: true, ignored: true }, 200);
 
-  const periodEnd = evt.period_end_date ?? evt.next_billing_date ?? null;
+  // A data de validade só é gravada quando o pagamento foi confirmado.
+  // Em eventos sem pagamento (criação, pendente, cancelamento), mantém a data anterior.
+  const CONFIRMS_PAYMENT = ['subscription.activated', 'subscription.renewed', 'subscription.reactivated'];
+  const update: Record<string, unknown> = {
+    status: newStatus,
+    updated_at: new Date().toISOString(),
+  };
+  if (CONFIRMS_PAYMENT.includes(eventType)) {
+    const periodEnd = evt.period_end_date ?? evt.next_billing_date ?? null;
+    update.periodo_atual_fim = periodEnd;
+    update.current_period_end = periodEnd;
+  }
+
   const { data: updated, error: updErr } = await admin.from('subscriptions')
-    .update({
-      status: newStatus,
-      periodo_atual_fim: periodEnd,
-      current_period_end: periodEnd,
-      updated_at: new Date().toISOString(),
-    })
+    .update(update)
     .eq('uvvipay_subscription_id', subId)
     .select('user_id');
 
