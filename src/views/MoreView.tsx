@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { useSubscription } from '../context/SubscriptionContext';
+import { PLANS } from '../types/subscription';
 import { IngredientGuideModal } from '../components/modules/IngredientGuideModal';
 import { MeasuresGuideModal } from '../components/modules/MeasuresGuideModal';
 import { TechniquesModal } from '../components/modules/TechniquesModal';
@@ -39,7 +40,28 @@ export const MoreView: React.FC<MoreViewProps> = ({
   onOpenPaywall,
 }) => {
   const { user, profile, isAdmin, signOut } = useAuth();
-  const { subscription, hasAccess, isPastDue } = useSubscription();
+  const { subscription, hasAccess, isPastDue, cancelSubscription } = useSubscription();
+  const [cancelStep, setCancelStep] = useState<'idle' | 'confirm' | 'loading'>('idle');
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  const canCancel = Boolean(
+    subscription &&
+      !subscription.manualOverride &&
+      !isAdmin &&
+      ['active', 'past_due', 'incomplete'].includes(subscription.status)
+  );
+
+  const handleCancelSubscription = async () => {
+    setCancelStep('loading');
+    setCancelError(null);
+    try {
+      await cancelSubscription();
+      setCancelStep('idle');
+    } catch (err: any) {
+      setCancelError(err?.message || 'Não foi possível cancelar agora. Tente novamente.');
+      setCancelStep('confirm');
+    }
+  };
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
 
@@ -321,9 +343,9 @@ export const MoreView: React.FC<MoreViewProps> = ({
                 : subscription?.manualOverride
                 ? 'Acesso Manual (Liberado pelo Admin)'
                 : subscription?.plan === 'anual'
-                ? 'Plano Anual (R$ 97,00/ano)'
+                ? `${PLANS.anual.name} (${PLANS.anual.priceFormatted}/ano)`
                 : subscription?.plan === 'mensal'
-                ? 'Plano Mensal (R$ 19,90/mês)'
+                ? `${PLANS.mensal.name} (${PLANS.mensal.priceFormatted}/mês)`
                 : 'Nenhum plano ativo'}
             </span>
           </div>
@@ -339,6 +361,49 @@ export const MoreView: React.FC<MoreViewProps> = ({
             </div>
           )}
         </div>
+
+        {canCancel && (
+          <div className="space-y-3 pt-1">
+            {cancelStep === 'idle' && (
+              <button
+                type="button"
+                onClick={() => setCancelStep('confirm')}
+                className="w-full min-h-[48px] rounded-2xl border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-300 font-bold text-[15px] hover:bg-rose-50 dark:hover:bg-rose-950/40"
+              >
+                Cancelar assinatura
+              </button>
+            )}
+
+            {(cancelStep === 'confirm' || cancelStep === 'loading') && (
+              <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 space-y-3">
+                <p className="text-[15px] text-stone-800 dark:text-stone-200">
+                  Ao cancelar, a renovação automática via Pix é interrompida e o acesso às receitas é encerrado. Deseja cancelar?
+                </p>
+                {cancelError && (
+                  <p role="alert" className="text-[14px] font-medium text-rose-800 dark:text-rose-300">{cancelError}</p>
+                )}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setCancelStep('idle')}
+                    disabled={cancelStep === 'loading'}
+                    className="flex-1 min-h-[48px] rounded-xl border border-stone-300 dark:border-stone-700 text-stone-800 dark:text-stone-100 font-bold text-[15px] disabled:opacity-50"
+                  >
+                    Voltar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCancelSubscription}
+                    disabled={cancelStep === 'loading'}
+                    className="flex-1 min-h-[48px] rounded-xl bg-rose-700 hover:bg-rose-800 text-white font-bold text-[15px] disabled:opacity-50"
+                  >
+                    {cancelStep === 'loading' ? 'Cancelando...' : 'Sim, cancelar assinatura'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {!hasAccess && (
           <button
