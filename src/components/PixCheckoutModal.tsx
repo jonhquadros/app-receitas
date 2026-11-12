@@ -21,6 +21,9 @@ const emptyAddress = { zip_code: '', street: '', street_number: '', neighborhood
 export const PixCheckoutModal: React.FC<PixCheckoutModalProps> = ({ isOpen, plan, onClose }) => {
   const { user } = useAuth();
   const { createSubscription, checkSubscriptionStatus } = useSubscription();
+  const checkRef = useRef(checkSubscriptionStatus);
+  checkRef.current = checkSubscriptionStatus;
+  const [checking, setChecking] = useState(false);
 
   const [step, setStep] = useState<Step>('form');
   const [name, setName] = useState('');
@@ -49,6 +52,7 @@ export const PixCheckoutModal: React.FC<PixCheckoutModalProps> = ({ isOpen, plan
       setPixCode(null);
       setQrImage(null);
       setCopied(false);
+      setChecking(false);
       setCepStatus('idle');
       setName(user?.user_metadata?.full_name ?? '');
     }
@@ -66,22 +70,45 @@ export const PixCheckoutModal: React.FC<PixCheckoutModalProps> = ({ isOpen, plan
   }, [pixCode]);
 
   // Acompanha a confirmação do pagamento até a assinatura ficar ativa
+  // Verifica o status no banco. Retorna true quando a assinatura está ativa.
+  const verifyPayment = async (): Promise<boolean> => {
+    try {
+      const sub = await checkRef.current();
+      return sub?.status === 'active';
+    } catch (err) {
+      console.warn('Falha ao verificar pagamento:', err);
+      return false;
+    }
+  };
+
   useEffect(() => {
     if (step !== 'pix') return;
     pollStartRef.current = Date.now();
-    const id = window.setInterval(async () => {
-      if (Date.now() - pollStartRef.current > POLL_TIMEOUT_MS) {
-        window.clearInterval(id);
+    let cancelled = false;
+    const tick = async () => {
+      if (cancelled) return;
+      if (Date.now() - pollStartRef.current > POLL_TIMEOUT_MS) return;
+      if (await verifyPayment()) {
+        cancelled = true;
+        setStep('done');
         return;
       }
-      const sub = await checkSubscriptionStatus();
-      if (sub?.status === 'active') {
-        window.clearInterval(id);
-        setStep('done');
-      }
-    }, POLL_INTERVAL_MS);
-    return () => window.clearInterval(id);
-  }, [step, checkSubscriptionStatus]);
+      if (!cancelled) timer = window.setTimeout(tick, POLL_INTERVAL_MS);
+    };
+    let timer = window.setTimeout(tick, POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [step]);
+
+  const handleManualCheck = async () => {
+    setChecking(true);
+    const paid = await verifyPayment();
+    setChecking(false);
+    if (paid) setStep('done');
+    else setError('Ainda não recebemos a confirmação do pagamento. Aguarde alguns instantes e tente de novo.');
+  };
 
   // Preenche rua, bairro, cidade e UF a partir do CEP (ViaCEP). Os campos continuam editáveis.
   const lookupCep = async (cepDigits: string) => {
@@ -335,6 +362,14 @@ export const PixCheckoutModal: React.FC<PixCheckoutModalProps> = ({ isOpen, plan
               </p>
             )}
             <p className="text-[14px] text-stone-600 dark:text-stone-400">Aguardando a confirmação do pagamento...</p>
+            <button
+              type="button"
+              onClick={handleManualCheck}
+              disabled={checking}
+              className="w-full min-h-[48px] rounded-2xl border border-emerald-700 text-emerald-800 dark:text-emerald-300 font-bold text-[15px] disabled:opacity-50"
+            >
+              {checking ? 'Verificando...' : 'Já paguei, verificar'}
+            </button>
             {error && (
               <p role="alert" className="text-[14px] text-rose-700 dark:text-rose-300">{error}</p>
             )}
