@@ -14,10 +14,11 @@ export function statusFromUvviPay(status: string): AppStatus | null {
 }
 
 // Eventos de assinatura que alteram o status. transaction.* só é registrado.
+// subscription.created e subscription.trial_started NÃO alteram o status: a função de criação
+// já grava o status inicial, e esses eventos podem chegar depois de subscription.activated
+// (fora de ordem), o que desfaria uma ativação já confirmada.
 export function statusFromEvent(event: string): AppStatus | null {
   switch (event) {
-    case 'subscription.created': return 'incomplete';
-    case 'subscription.trial_started': return 'trialing';
     case 'subscription.activated':
     case 'subscription.renewed':
     case 'subscription.reactivated': return 'active';
