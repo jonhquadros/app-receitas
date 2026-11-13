@@ -3,26 +3,63 @@ import { useAuth } from './AuthContext';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { UserSubscription, SubscriptionPlan, SubscriptionStatus } from '../types/subscription';
 
+export type PixMethod = 'pix_automatic' | 'pix_cycle';
+
+export interface PixSubscriptionForm {
+  plan: 'mensal' | 'anual';
+  method: PixMethod;
+  client_request_id: string;
+  name: string;
+  email: string;
+  phone: string;
+  document: { type: 'cpf' | 'cnpj'; number: string };
+  // Só o Pix Automático envia endereço; no Pix a cada renovação ele não é necessário.
+  address?: {
+    zip_code: string;
+    street: string;
+    street_number: string;
+    neighborhood: string;
+    city: string;
+    state: string;
+  };
+}
+
+export interface PixSubscriptionResult {
+  subscriptionId: string;
+  status: string;
+  pixQrcode: string | null;
+}
+
 interface SubscriptionContextType {
   subscription: UserSubscription | null;
   loading: boolean;
   hasAccess: boolean;
   isPastDue: boolean;
   checkSubscriptionStatus: () => Promise<UserSubscription | null>;
-  startCheckout: (plan: 'mensal' | 'anual') => Promise<void>;
-  isCheckingOut: boolean;
-  checkoutError: string | null;
-  setCheckoutError: (err: string | null) => void;
+  createSubscription: (form: PixSubscriptionForm) => Promise<PixSubscriptionResult>;
+  cancelSubscription: () => Promise<void>;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
+
+// Extrai a mensagem devolvida pela Edge Function, sem expor detalhes internos.
+async function readFunctionError(error: unknown, fallback: string): Promise<string> {
+  try {
+    const response = (error as any).context;
+    if (response && typeof response.json === 'function') {
+      const payload = await response.json();
+      if (typeof payload?.error === 'string' && payload.error) return payload.error;
+    }
+  } catch {
+    // Sem corpo legível: usa a mensagem padrão.
+  }
+  return fallback;
+}
 
 export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isAdmin } = useAuth();
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [isCheckingOut, setIsCheckingOut] = useState<boolean>(false);
-  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   const fetchSubscription = useCallback(async (): Promise<UserSubscription | null> => {
     if (!user || !isSupabaseConfigured() || !supabase) {
@@ -49,8 +86,6 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
           status: (data.status as SubscriptionStatus) || 'none',
           plan: (data.plano as SubscriptionPlan) || 'mensal',
           currentPeriodEnd: data.periodo_atual_fim || data.current_period_end || null,
-          stripeCustomerId: data.stripe_customer_id || null,
-          stripeSubscriptionId: data.stripe_subscription_id || null,
           manualOverride: Boolean(data.manual_override),
           updatedAt: data.updated_at,
         };
@@ -82,57 +117,41 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const isPastDue = Boolean(subscription && subscription.status === 'past_due');
 
-  const startCheckout = async (plan: 'mensal' | 'anual') => {
-    if (!user) {
-      setCheckoutError('Faça login ou crie sua conta gratuita antes de assinar.');
-      return;
+  // Cria a assinatura Pix. A liberação do acesso só acontece depois da confirmação pelo webhook.
+  const createSubscription = async (form: PixSubscriptionForm): Promise<PixSubscriptionResult> => {
+    if (!user) throw new Error('Faça login antes de assinar.');
+    if (!isSupabaseConfigured() || !supabase) throw new Error('Serviço indisponível no momento.');
+
+    const { data, error } = await supabase.functions.invoke('create-uvvipay-subscription', {
+      body: form,
+    });
+
+    if (error) {
+      throw new Error(
+        await readFunctionError(error, 'Não foi possível criar a assinatura. Tente novamente.')
+      );
+    }
+    if (!data?.subscription_id) {
+      throw new Error('Resposta inesperada do serviço de pagamento. Tente novamente.');
     }
 
-    setIsCheckingOut(true);
-    setCheckoutError(null);
+    await fetchSubscription();
+    return {
+      subscriptionId: String(data.subscription_id),
+      status: String(data.status ?? 'incomplete'),
+      pixQrcode: data.pix?.qrcode ?? null,
+    };
+  };
 
-    try {
-      if (!isSupabaseConfigured() || !supabase) {
-        throw new Error('Serviço de banco de dados não configurado.');
-      }
+  // Pede o cancelamento. O status final chega pelo webhook subscription.cancelled.
+  const cancelSubscription = async (): Promise<void> => {
+    if (!isSupabaseConfigured() || !supabase) throw new Error('Serviço indisponível no momento.');
 
-      // O backend escolhe o Price ID a partir do plano. O frontend não envia
-      // Price IDs nem valores de preço, evitando divergência entre ambientes.
-      const { data, error } = await supabase.functions.invoke('create-checkout-session', {
-        body: { plan },
-      });
-
-      if (error) {
-        let backendMessage = '';
-        try {
-          const response = (error as any).context;
-          if (response && typeof response.json === 'function') {
-            const payload = await response.json();
-            backendMessage = typeof payload?.error === 'string' ? payload.error : '';
-          }
-        } catch {
-          // Mantém a mensagem genérica caso o corpo da resposta não esteja disponível.
-        }
-
-        console.warn('Erro retornado pela Edge Function:', error, backendMessage);
-        throw new Error(
-          backendMessage ||
-            'Não foi possível iniciar o Checkout. Tente novamente em alguns instantes.'
-        );
-      }
-
-      if (data?.url) {
-        window.location.href = data.url;
-        return;
-      }
-
-      throw new Error('URL de pagamento não foi retornada pelo Stripe.');
-    } catch (err: any) {
-      console.error('Erro ao iniciar checkout:', err);
-      setCheckoutError(err.message || 'Erro ao comunicar com o Stripe.');
-    } finally {
-      setIsCheckingOut(false);
+    const { error } = await supabase.functions.invoke('cancel-uvvipay-subscription', { body: {} });
+    if (error) {
+      throw new Error(await readFunctionError(error, 'Não foi possível cancelar agora. Tente novamente.'));
     }
+    await fetchSubscription();
   };
 
   return (
@@ -143,10 +162,8 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
         hasAccess,
         isPastDue,
         checkSubscriptionStatus: fetchSubscription,
-        startCheckout,
-        isCheckingOut,
-        checkoutError,
-        setCheckoutError,
+        createSubscription,
+        cancelSubscription,
       }}
     >
       {children}
