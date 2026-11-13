@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import { PLANS } from '../types/subscription';
 import { useAuth } from '../context/AuthContext';
-import { useSubscription, PixSubscriptionForm } from '../context/SubscriptionContext';
+import { useSubscription, PixSubscriptionForm, PixMethod } from '../context/SubscriptionContext';
 
 interface PixCheckoutModalProps {
   isOpen: boolean;
@@ -26,6 +26,7 @@ export const PixCheckoutModal: React.FC<PixCheckoutModalProps> = ({ isOpen, plan
   const [checking, setChecking] = useState(false);
 
   const [step, setStep] = useState<Step>('form');
+  const [method, setMethod] = useState<PixMethod>('pix_automatic');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [docType, setDocType] = useState<'cpf' | 'cnpj'>('cpf');
@@ -48,6 +49,7 @@ export const PixCheckoutModal: React.FC<PixCheckoutModalProps> = ({ isOpen, plan
     if (isOpen) {
       requestIdRef.current = crypto.randomUUID();
       setStep('form');
+      setMethod('pix_automatic');
       setError(null);
       setPixCode(null);
       setQrImage(null);
@@ -176,6 +178,7 @@ export const PixCheckoutModal: React.FC<PixCheckoutModalProps> = ({ isOpen, plan
 
     const form: PixSubscriptionForm = {
       plan,
+      method,
       client_request_id: requestIdRef.current,
       name: name.trim(),
       email: (user?.email ?? '').trim().toLowerCase(),
@@ -220,6 +223,18 @@ export const PixCheckoutModal: React.FC<PixCheckoutModalProps> = ({ isOpen, plan
     'w-full min-h-[48px] px-3.5 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-950 text-[16px] text-stone-900 dark:text-stone-100';
   const labelClass = 'block text-[15px] font-bold text-stone-800 dark:text-stone-200 mb-1';
 
+  const optionClass = (selected: boolean, disabled = false) =>
+    [
+      'flex items-start gap-3 p-4 rounded-2xl border-2 min-h-[64px]',
+      disabled
+        ? 'border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-950 opacity-60 cursor-not-allowed'
+        : selected
+          ? 'border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 cursor-pointer'
+          : 'border-stone-300 dark:border-stone-700 cursor-pointer',
+    ].join(' ');
+  const optionTitleClass = 'block text-[16px] font-extrabold text-stone-900 dark:text-stone-100';
+  const optionTextClass = 'block text-[14px] text-stone-700 dark:text-stone-300';
+
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" onClick={onClose}>
       <div
@@ -250,6 +265,55 @@ export const PixCheckoutModal: React.FC<PixCheckoutModalProps> = ({ isOpen, plan
 
         {step === 'form' && (
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            <fieldset className="space-y-3">
+              <legend className={labelClass}>Como você quer pagar?</legend>
+
+              <label className={optionClass(method === 'pix_automatic')}>
+                <input
+                  type="radio"
+                  name="pix-method"
+                  className="mt-1 w-5 h-5"
+                  checked={method === 'pix_automatic'}
+                  onChange={() => setMethod('pix_automatic')}
+                />
+                <span>
+                  <span className={optionTitleClass}>Pix Automático</span>
+                  <span className={optionTextClass}>
+                    Você autoriza uma vez e a renovação é cobrada sozinha. Não precisa lembrar de pagar.
+                  </span>
+                </span>
+              </label>
+
+              <label className={optionClass(method === 'pix_cycle')}>
+                <input
+                  type="radio"
+                  name="pix-method"
+                  className="mt-1 w-5 h-5"
+                  checked={method === 'pix_cycle'}
+                  onChange={() => setMethod('pix_cycle')}
+                />
+                <span>
+                  <span className={optionTitleClass}>Pix a cada renovação</span>
+                  <span className={optionTextClass}>
+                    Você paga um novo Pix a cada renovação do plano, sem autorização automática.
+                  </span>
+                </span>
+              </label>
+
+              <label className={optionClass(false, true)} aria-disabled="true">
+                <input type="radio" name="pix-method" className="mt-1 w-5 h-5" disabled />
+                <span>
+                  <span className={optionTitleClass}>
+                    Cartão de crédito{' '}
+                    <span className="ml-1 px-2 py-0.5 rounded-full bg-stone-200 dark:bg-stone-800 text-[12px] font-bold text-stone-700 dark:text-stone-300">
+                      Em breve
+                    </span>
+                  </span>
+                  <span className={optionTextClass}>Ainda não está disponível.</span>
+                </span>
+              </label>
+            </fieldset>
+
             <div>
               <label htmlFor="pix-name" className={labelClass}>Nome completo</label>
               <input id="pix-name" className={inputClass} value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
@@ -309,7 +373,9 @@ export const PixCheckoutModal: React.FC<PixCheckoutModalProps> = ({ isOpen, plan
             <label className="flex items-start gap-3 text-[14px] text-stone-700 dark:text-stone-300">
               <input type="checkbox" className="mt-1 w-5 h-5" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
               <span>
-                Autorizo o uso destes dados para emitir a cobrança e gerenciar minha assinatura, conforme a política de privacidade. Entendo que a cobrança por Pix Automático é renovada no intervalo do plano, e que posso cancelar quando quiser.
+                {method === 'pix_automatic'
+                  ? 'Autorizo o uso destes dados para emitir a cobrança e gerenciar minha assinatura, conforme a política de privacidade. Entendo que a cobrança por Pix Automático é renovada no intervalo do plano, e que posso cancelar quando quiser.'
+                  : 'Autorizo o uso destes dados para emitir a cobrança e gerenciar minha assinatura, conforme a política de privacidade. Entendo que preciso pagar um novo Pix a cada renovação do plano, e que posso cancelar quando quiser.'}
               </span>
             </label>
 

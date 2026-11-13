@@ -3,8 +3,11 @@ import { useAuth } from './AuthContext';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { UserSubscription, SubscriptionPlan, SubscriptionStatus } from '../types/subscription';
 
+export type PixMethod = 'pix_automatic' | 'pix_cycle';
+
 export interface PixSubscriptionForm {
   plan: 'mensal' | 'anual';
+  method: PixMethod;
   client_request_id: string;
   name: string;
   email: string;
