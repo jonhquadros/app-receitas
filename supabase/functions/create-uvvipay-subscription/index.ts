@@ -79,13 +79,16 @@ Deno.serve(async (req) => {
   if (docType === 'cnpj' && !isValidCnpj(docNumber)) return json({ error: 'CNPJ inválido' }, 422, cors);
   if (docType !== 'cpf' && docType !== 'cnpj') return json({ error: 'Documento inválido' }, 422, cors);
 
-  // Endereço exigido nas duas formas, de propósito. Só o Pix Automático obriga a UvviPay a receber o
-  // endereço, mas ela não tem endpoint para atualizar o cadastro depois. Se o cliente começasse no
-  // Pix a cada ciclo sem endereço, nunca poderia migrar para o Pix Automático (erro UVV154361).
-  if (!isValidCep(String(addr.zip_code ?? ''))) return json({ error: 'CEP inválido' }, 422, cors);
-  if (!isValidUf(String(addr.state ?? ''))) return json({ error: 'UF inválida' }, 422, cors);
-  for (const f of ['street', 'street_number', 'neighborhood', 'city']) {
-    if (!String(addr[f] ?? '').trim()) return json({ error: 'Endereço incompleto' }, 422, cors);
+  // Endereço: só o Pix Automático exige (sem ele a UvviPay responde 422 / UVV154361).
+  // No Pix a cada renovação (immediate) não é necessário, e se fosse enviado teria de vir completo
+  // (senão 400). Por isso, nesse caso o endereço é ignorado e nem chega a ser validado.
+  const needsAddress = method === 'pix_automatic';
+  if (needsAddress) {
+    if (!isValidCep(String(addr.zip_code ?? ''))) return json({ error: 'CEP inválido' }, 422, cors);
+    if (!isValidUf(String(addr.state ?? ''))) return json({ error: 'UF inválida' }, 422, cors);
+    for (const f of ['street', 'street_number', 'neighborhood', 'city']) {
+      if (!String(addr[f] ?? '').trim()) return json({ error: 'Endereço incompleto' }, 422, cors);
+    }
   }
 
   const planId = plan === 'mensal'
@@ -94,7 +97,7 @@ Deno.serve(async (req) => {
   if (!planId) { logError('config', { missing: plan === 'mensal' ? 'UVVIPAY_PLAN_ID_MENSAL' : 'UVVIPAY_PLAN_ID_ANUAL' }); return json({ error: 'Serviço indisponível' }, 500, cors); }
 
   // 4. Idempotência: mesma requisição devolve o mesmo resultado
-  const payloadForHash = JSON.stringify({ plan, method, name, email, phone, docType, docNumber, addr });
+  const payloadForHash = JSON.stringify({ plan, method, name, email, phone, docType, docNumber, addr: needsAddress ? addr : null });
   const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payloadForHash));
   const payloadHash = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, '0')).join('');
 
@@ -123,15 +126,19 @@ Deno.serve(async (req) => {
           external_customer_id: userId,
           name, email, phone,
           document: { number: docNumber, type: docType },
-          address: {
-            zip_code: onlyDigits(String(addr.zip_code)),
-            street: String(addr.street).trim(),
-            street_number: String(addr.street_number).trim(),
-            neighborhood: String(addr.neighborhood).trim(),
-            city: String(addr.city).trim(),
-            state: String(addr.state).toUpperCase(),
-            country: 'BR',
-          },
+          ...(needsAddress
+            ? {
+                address: {
+                  zip_code: onlyDigits(String(addr.zip_code)),
+                  street: String(addr.street).trim(),
+                  street_number: String(addr.street_number).trim(),
+                  neighborhood: String(addr.neighborhood).trim(),
+                  city: String(addr.city).trim(),
+                  state: String(addr.state).toUpperCase(),
+                  country: 'BR',
+                },
+              }
+            : {}),
         },
       };
 
@@ -196,7 +203,14 @@ Deno.serve(async (req) => {
   logError('upstream_status', { status: upstream.status, code: upstreamBody.code ?? null, method });
 
   if (upstreamBody.code === 'UVV154158') return json({ error: 'Você já possui uma assinatura neste plano.' }, 409, cors);
-  if (upstreamBody.code === 'UVV154361') return json({ error: 'Endereço incompleto para Pix Automático.' }, 422, cors);
+  if (upstreamBody.code === 'UVV154361') {
+    // Cadastro criado antes sem endereço (ex.: começou no Pix a cada renovação) não pode ser atualizado pela API.
+    return json({
+      error: existing?.uvvipay_customer_id
+        ? 'Seu cadastro de pagamento foi criado sem endereço, e o Pix Automático exige endereço. Use o Pix a cada renovação ou fale com o suporte.'
+        : 'Endereço incompleto para Pix Automático.',
+    }, 422, cors);
+  }
   if (upstream.status === 429) return json({ error: 'Serviço ocupado. Tente novamente em instantes.' }, 503, cors);
   if (upstream.status >= 500) return json({ error: 'Serviço de pagamento indisponível. Tente novamente.' }, 502, cors);
   return json({ error: 'Não foi possível criar a assinatura. Verifique os dados.' }, 422, cors);

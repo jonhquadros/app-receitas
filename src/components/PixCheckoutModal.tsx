@@ -157,11 +157,14 @@ export const PixCheckoutModal: React.FC<PixCheckoutModalProps> = ({ isOpen, plan
     if (name.trim().length < 3) return 'Informe seu nome completo.';
     if (phone.replace(/\D/g, '').length < 10) return 'Informe um telefone com DDD.';
     if (docNumber.replace(/\D/g, '').length < 11) return docType === 'cpf' ? 'Informe seu CPF.' : 'Informe seu CNPJ.';
-    if (address.zip_code.replace(/\D/g, '').length !== 8) return 'Informe um CEP com 8 números.';
-    if (!address.street.trim() || !address.street_number.trim() || !address.neighborhood.trim() || !address.city.trim()) {
-      return 'Preencha o endereço completo.';
+    // Só o Pix Automático exige endereço.
+    if (method === 'pix_automatic') {
+      if (address.zip_code.replace(/\D/g, '').length !== 8) return 'Informe um CEP com 8 números.';
+      if (!address.street.trim() || !address.street_number.trim() || !address.neighborhood.trim() || !address.city.trim()) {
+        return 'Preencha o endereço completo.';
+      }
+      if (address.state.trim().length !== 2) return 'Informe a UF com 2 letras.';
     }
-    if (address.state.trim().length !== 2) return 'Informe a UF com 2 letras.';
     if (!consent) return 'Confirme a autorização de cobrança para continuar.';
     return null;
   };
@@ -184,14 +187,17 @@ export const PixCheckoutModal: React.FC<PixCheckoutModalProps> = ({ isOpen, plan
       email: (user?.email ?? '').trim().toLowerCase(),
       phone: phone.replace(/\D/g, ''),
       document: { type: docType, number: docNumber.replace(/\D/g, '') },
-      address: {
-        zip_code: address.zip_code.replace(/\D/g, ''),
-        street: address.street.trim(),
-        street_number: address.street_number.trim(),
-        neighborhood: address.neighborhood.trim(),
-        city: address.city.trim(),
-        state: address.state.trim().toUpperCase(),
-      },
+      address:
+        method === 'pix_automatic'
+          ? {
+              zip_code: address.zip_code.replace(/\D/g, ''),
+              street: address.street.trim(),
+              street_number: address.street_number.trim(),
+              neighborhood: address.neighborhood.trim(),
+              city: address.city.trim(),
+              state: address.state.trim().toUpperCase(),
+            }
+          : undefined,
     };
 
     try {
@@ -335,40 +341,44 @@ export const PixCheckoutModal: React.FC<PixCheckoutModalProps> = ({ isOpen, plan
                 <input id="pix-doc" inputMode="numeric" className={inputClass} value={docNumber} onChange={(e) => setDocNumber(e.target.value)} />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-1">
-                <label htmlFor="pix-zip" className={labelClass}>CEP</label>
-                <input id="pix-zip" inputMode="numeric" className={inputClass} value={address.zip_code} onChange={(e) => setAddr('zip_code', e.target.value)} autoComplete="postal-code" />
-              </div>
-              <div className="col-span-2">
-                <label htmlFor="pix-number" className={labelClass}>Número</label>
-                <input id="pix-number" inputMode="numeric" className={inputClass} value={address.street_number} onChange={(e) => setAddr('street_number', e.target.value)} />
-              </div>
-            </div>
-            {cepStatus === 'loading' && (
-              <p className="text-[14px] text-stone-600 dark:text-stone-400">Buscando endereço pelo CEP...</p>
+            {method === 'pix_automatic' && (
+              <>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-1">
+                    <label htmlFor="pix-zip" className={labelClass}>CEP</label>
+                    <input id="pix-zip" inputMode="numeric" className={inputClass} value={address.zip_code} onChange={(e) => setAddr('zip_code', e.target.value)} autoComplete="postal-code" />
+                  </div>
+                  <div className="col-span-2">
+                    <label htmlFor="pix-number" className={labelClass}>Número</label>
+                    <input id="pix-number" inputMode="numeric" className={inputClass} value={address.street_number} onChange={(e) => setAddr('street_number', e.target.value)} />
+                  </div>
+                </div>
+                {cepStatus === 'loading' && (
+                  <p className="text-[14px] text-stone-600 dark:text-stone-400">Buscando endereço pelo CEP...</p>
+                )}
+                {cepStatus === 'notfound' && (
+                  <p className="text-[14px] text-amber-800 dark:text-amber-300">CEP não encontrado. Preencha o endereço abaixo.</p>
+                )}
+                <div>
+                  <label htmlFor="pix-street" className={labelClass}>Rua</label>
+                  <input id="pix-street" className={inputClass} value={address.street} onChange={(e) => setAddr('street', e.target.value)} autoComplete="address-line1" />
+                </div>
+                <div>
+                  <label htmlFor="pix-neighborhood" className={labelClass}>Bairro</label>
+                  <input id="pix-neighborhood" className={inputClass} value={address.neighborhood} onChange={(e) => setAddr('neighborhood', e.target.value)} />
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-2">
+                    <label htmlFor="pix-city" className={labelClass}>Cidade</label>
+                    <input id="pix-city" className={inputClass} value={address.city} onChange={(e) => setAddr('city', e.target.value)} autoComplete="address-level2" />
+                  </div>
+                  <div className="col-span-1">
+                    <label htmlFor="pix-state" className={labelClass}>UF</label>
+                    <input id="pix-state" maxLength={2} className={inputClass} value={address.state} onChange={(e) => setAddr('state', e.target.value)} />
+                  </div>
+                </div>
+              </>
             )}
-            {cepStatus === 'notfound' && (
-              <p className="text-[14px] text-amber-800 dark:text-amber-300">CEP não encontrado. Preencha o endereço abaixo.</p>
-            )}
-            <div>
-              <label htmlFor="pix-street" className={labelClass}>Rua</label>
-              <input id="pix-street" className={inputClass} value={address.street} onChange={(e) => setAddr('street', e.target.value)} autoComplete="address-line1" />
-            </div>
-            <div>
-              <label htmlFor="pix-neighborhood" className={labelClass}>Bairro</label>
-              <input id="pix-neighborhood" className={inputClass} value={address.neighborhood} onChange={(e) => setAddr('neighborhood', e.target.value)} />
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-2">
-                <label htmlFor="pix-city" className={labelClass}>Cidade</label>
-                <input id="pix-city" className={inputClass} value={address.city} onChange={(e) => setAddr('city', e.target.value)} autoComplete="address-level2" />
-              </div>
-              <div className="col-span-1">
-                <label htmlFor="pix-state" className={labelClass}>UF</label>
-                <input id="pix-state" maxLength={2} className={inputClass} value={address.state} onChange={(e) => setAddr('state', e.target.value)} />
-              </div>
-            </div>
 
             <label className="flex items-start gap-3 text-[14px] text-stone-700 dark:text-stone-300">
               <input type="checkbox" className="mt-1 w-5 h-5" checked={consent} onChange={(e) => setConsent(e.target.checked)} />

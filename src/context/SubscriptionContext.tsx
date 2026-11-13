@@ -13,7 +13,8 @@ export interface PixSubscriptionForm {
   email: string;
   phone: string;
   document: { type: 'cpf' | 'cnpj'; number: string };
-  address: {
+  // Só o Pix Automático envia endereço; no Pix a cada renovação ele não é necessário.
+  address?: {
     zip_code: string;
     street: string;
     street_number: string;
