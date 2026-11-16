@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { UserSubscription, SubscriptionPlan, SubscriptionStatus } from '../types/subscription';
+import { UserSubscription, SubscriptionPlan, SubscriptionStatus, RenewalCharge } from '../types/subscription';
 
 export type PixMethod = 'pix_automatic' | 'pix_cycle';
 
@@ -35,6 +35,9 @@ interface SubscriptionContextType {
   loading: boolean;
   hasAccess: boolean;
   isPastDue: boolean;
+  pendingRenewal: RenewalCharge | null;
+  renewalPixExpired: boolean;
+  refreshRenewal: () => Promise<void>;
   checkSubscriptionStatus: () => Promise<UserSubscription | null>;
   createSubscription: (form: PixSubscriptionForm) => Promise<PixSubscriptionResult>;
   cancelSubscription: () => Promise<void>;
@@ -60,6 +63,8 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const { user, isAdmin } = useAuth();
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [pendingRenewal, setPendingRenewal] = useState<RenewalCharge | null>(null);
+  const [renewalPixExpired, setRenewalPixExpired] = useState(false);
 
   const fetchSubscription = useCallback(async (): Promise<UserSubscription | null> => {
     if (!user || !isSupabaseConfigured() || !supabase) {
@@ -107,6 +112,71 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     fetchSubscription();
   }, [fetchSubscription]);
 
+  // Consulta somente cobranças já criadas pelo webhook. Nunca gera uma nova cobrança.
+  const refreshRenewal = useCallback(async (): Promise<void> => {
+    if (!user || !isSupabaseConfigured() || !supabase) {
+      setPendingRenewal(null);
+      setRenewalPixExpired(false);
+      return;
+    }
+
+    setPendingRenewal(null);
+    setRenewalPixExpired(false);
+
+    try {
+      const { data, error } = await supabase
+        .from('renewal_charges')
+        .select('transaction_id, pix_code, pix_expires_at, amount_cents, status, created_at')
+        .eq('status', 'waiting_payment')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.warn('Aviso ao consultar Pix de renovação:', error.message);
+        return;
+      }
+
+      if (!data) {
+        // Se o webhook já marcou a cobrança como vencida, identifica esse estado sem expor o código Pix.
+        const { data: latestClosedCharge, error: closedError } = await supabase
+          .from('renewal_charges')
+          .select('status, created_at')
+          .in('status', ['expired', 'paid'])
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (closedError) {
+          console.warn('Aviso ao consultar situação da última cobrança Pix:', closedError.message);
+          return;
+        }
+
+        setRenewalPixExpired(latestClosedCharge?.status === 'expired');
+        return;
+      }
+
+      const expiresAt = data.pix_expires_at ? new Date(data.pix_expires_at) : null;
+      const isExpired = Boolean(expiresAt && Number.isFinite(expiresAt.getTime()) && expiresAt.getTime() <= Date.now());
+
+      if (!expiresAt || !Number.isFinite(expiresAt.getTime()) || isExpired || !data.pix_code) {
+        setRenewalPixExpired(isExpired);
+        return;
+      }
+
+      setPendingRenewal({
+        transactionId: data.transaction_id,
+        pixCode: data.pix_code,
+        pixExpiresAt: data.pix_expires_at,
+        amountCents: data.amount_cents,
+        status: data.status,
+        createdAt: data.created_at,
+      });
+    } catch (err) {
+      console.warn('Erro ao consultar Pix de renovação:', err);
+    }
+  }, [user]);
+
   const hasAccess = Boolean(
     isAdmin ||
       (subscription &&
@@ -116,6 +186,11 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
   );
 
   const isPastDue = Boolean(subscription && subscription.status === 'past_due');
+
+  useEffect(() => {
+    // Consulta ao montar o provider e quando o status de renovação mudar para past_due.
+    refreshRenewal();
+  }, [isPastDue, refreshRenewal]);
 
   // Cria a assinatura Pix. A liberação do acesso só acontece depois da confirmação pelo webhook.
   const createSubscription = async (form: PixSubscriptionForm): Promise<PixSubscriptionResult> => {
@@ -161,6 +236,9 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
         loading,
         hasAccess,
         isPastDue,
+        pendingRenewal,
+        renewalPixExpired,
+        refreshRenewal,
         checkSubscriptionStatus: fetchSubscription,
         createSubscription,
         cancelSubscription,

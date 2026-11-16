@@ -19,6 +19,15 @@ export interface UserSubscription {
   updatedAt?: string;
 }
 
+export interface RenewalCharge {
+  transactionId: string;
+  pixCode: string;
+  pixExpiresAt: string;
+  amountCents: number | null;
+  status: 'waiting_payment' | 'expired' | 'paid';
+  createdAt: string;
+}
+
 export interface PlanConfig {
   id: 'mensal' | 'anual';
   name: string;
