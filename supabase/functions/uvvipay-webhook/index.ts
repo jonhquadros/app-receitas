@@ -2,6 +2,12 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import { verifyUvviPaySignature } from '../_shared/uvvipay-signature.ts';
 import { json, logError } from '../_shared/http.ts';
 import { isSubscriptionEvent, statusFromEvent } from '../_shared/status.ts';
+import { handleRenewalTransaction, isRenewalTransactionEvent } from '../_shared/renewal.ts';
+
+const sha256Hex = async (text: string) => {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+};
 
 // Sem JWT: a UvviPay não envia token. A autenticidade vem da assinatura HMAC.
 Deno.serve(async (req) => {
@@ -21,14 +27,19 @@ Deno.serve(async (req) => {
 
   let evt: any;
   try { evt = JSON.parse(rawBody); } catch { return json({ error: 'JSON inválido' }, 400); }
-  const eventId = String(evt?.event_id ?? '');
   const eventType = String(evt?.event ?? '');
-  const subId = evt?.id ? String(evt.id) : null;
-  if (!eventId || !eventType) return json({ error: 'Evento incompleto' }, 400);
+  if (!eventType) return json({ error: 'Evento incompleto' }, 400);
+
+  // Chave de deduplicação.
+  // Eventos de assinatura trazem event_id. Pelo exemplo de transaction.* enviado pela UvviPay,
+  // o evento não traz event_id: a versão anterior rejeitava esses eventos com 400.
+  // Sem event_id, usa-se o hash do corpo: reenvio idêntico é deduplicado, evento novo tem corpo diferente.
+  const eventId = evt?.event_id ? String(evt.event_id) : `body:${await sha256Hex(rawBody)}`;
+  const subId = isSubscriptionEvent(eventType) && evt?.id ? String(evt.id) : null;
 
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
-  // Deduplicação: o mesmo event_id é processado uma única vez
+  // Deduplicação: o mesmo evento é processado uma única vez
   const { error: insErr } = await admin.from('uvvipay_webhook_events').insert({
     event_id: eventId, event_type: eventType, subscription_id: subId,
   });
@@ -38,8 +49,20 @@ Deno.serve(async (req) => {
     return json({ error: 'Falha temporária' }, 500); // UvviPay tenta de novo
   }
 
-  // Só eventos de assinatura alteram status. transaction.* fica apenas registrado.
-  if (!isSubscriptionEvent(eventType) || !subId) return json({ received: true }, 200);
+  // Em caso de falha, remove a marca para que a UvviPay reenvie
+  const failTemporarily = async () => {
+    await admin.from('uvvipay_webhook_events').delete().eq('event_id', eventId);
+    return json({ error: 'Falha temporária' }, 500);
+  };
+
+  // Renovação Pix: transaction.waiting_payment (guarda o código), expired e paid
+  if (isRenewalTransactionEvent(eventType)) {
+    const ok = await handleRenewalTransaction(admin, evt, eventType);
+    return ok ? json({ received: true }, 200) : failTemporarily();
+  }
+
+  // Demais transaction.* ficam só registrados. Só eventos de assinatura alteram status.
+  if (!subId) return json({ received: true }, 200);
 
   const newStatus = statusFromEvent(eventType);
   if (!newStatus) return json({ received: true, ignored: true }, 200);
@@ -64,9 +87,7 @@ Deno.serve(async (req) => {
 
   if (updErr) {
     logError('webhook_update', { code: updErr.code });
-    // Remove a marca para que a UvviPay reenvie e a atualização não se perca
-    await admin.from('uvvipay_webhook_events').delete().eq('event_id', eventId);
-    return json({ error: 'Falha temporária' }, 500);
+    return failTemporarily();
   }
   if (!updated || updated.length === 0) logError('webhook_unknown_subscription', { event: eventType });
 
