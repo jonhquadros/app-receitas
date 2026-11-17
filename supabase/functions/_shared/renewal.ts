@@ -74,3 +74,35 @@ export async function handleRenewalTransaction(admin: any, evt: any, eventType: 
   if (error) { logError('renewal_status_upsert', { code: error.code, status }); return false; }
   return true;
 }
+
+// Estorno e chargeback: o cliente perdeu o direito ao pagamento, então o acesso é revogado.
+const REVOCATION_EVENTS = new Set(['transaction.chargedback', 'transaction.refunded']);
+export const isRevocationTransactionEvent = (event: string) => REVOCATION_EVENTS.has(event);
+
+/**
+ * Revoga o acesso da assinatura ligada à transação estornada ou contestada.
+ * Só consegue associar quando a transação tem externalReference de renovação ("charge-...").
+ * Transações sem essa referência são registradas no log e não alteram nada.
+ * Retorna false para pedir reenvio à UvviPay (falha temporária).
+ */
+export async function handleRevocation(admin: any, evt: any, eventType: string): Promise<boolean> {
+  const ref = parseExternalReference(evt?.externalReference);
+  if (!ref) {
+    logError('revocation_unmapped', { event: eventType, hasReference: Boolean(evt?.externalReference) });
+    return true;
+  }
+
+  const inv = await uvvipayGet(`/v1/subscriptions/invoices/${ref.invoiceId}`);
+  const subscriptionId = inv.ok && inv.body?.subscription_id ? String(inv.body.subscription_id) : null;
+  if (!subscriptionId) { logError('revocation_invoice_lookup', { status: inv.status, event: eventType }); return false; }
+
+  const { data, error } = await admin.from('subscriptions')
+    .update({ status: 'canceled', updated_at: new Date().toISOString() })
+    .eq('uvvipay_subscription_id', subscriptionId)
+    .select('user_id');
+  if (error) { logError('revocation_update', { code: error.code }); return false; }
+
+  if (!data || data.length === 0) { logError('revocation_unknown_subscription', { event: eventType }); return true; }
+  logError('revocation_applied', { event: eventType });
+  return true;
+}
