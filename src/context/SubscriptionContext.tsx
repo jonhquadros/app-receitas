@@ -112,6 +112,8 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     fetchSubscription();
   }, [fetchSubscription]);
 
+  const periodEndKey = subscription?.currentPeriodEnd ?? null;
+
   // Consulta somente cobranças já criadas pelo webhook. Nunca gera uma nova cobrança.
   const refreshRenewal = useCallback(async (): Promise<void> => {
     if (!user || !isSupabaseConfigured() || !supabase) {
@@ -123,11 +125,19 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setPendingRenewal(null);
     setRenewalPixExpired(false);
 
+    // Só considera cobranças do ciclo atual: criadas nos 15 dias antes do fim do período.
+    // Sem isso, um Pix vencido de meses atrás faria aparecer "O Pix venceu" de forma errada.
+    const periodEndMs = periodEndKey ? new Date(periodEndKey).getTime() : NaN;
+    const cycleStart = Number.isFinite(periodEndMs)
+      ? new Date(periodEndMs - 15 * 24 * 60 * 60 * 1000).toISOString()
+      : '1970-01-01T00:00:00.000Z';
+
     try {
       const { data, error } = await supabase
         .from('renewal_charges')
         .select('transaction_id, pix_code, pix_expires_at, amount_cents, status, created_at')
         .eq('status', 'waiting_payment')
+        .gte('created_at', cycleStart)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -143,6 +153,7 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
           .from('renewal_charges')
           .select('status, created_at')
           .in('status', ['expired', 'paid'])
+          .gte('created_at', cycleStart)
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
@@ -175,7 +186,7 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     } catch (err) {
       console.warn('Erro ao consultar Pix de renovação:', err);
     }
-  }, [user]);
+  }, [user, periodEndKey]);
 
   const hasAccess = Boolean(
     isAdmin ||
