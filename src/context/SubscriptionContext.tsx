@@ -1,28 +1,70 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { UserSubscription, SubscriptionPlan, SubscriptionStatus } from '../types/subscription';
+import { UserSubscription, SubscriptionPlan, SubscriptionStatus, RenewalCharge } from '../types/subscription';
+
+export type PixMethod = 'pix_automatic' | 'pix_cycle';
+
+export interface PixSubscriptionForm {
+  plan: 'mensal' | 'anual';
+  method: PixMethod;
+  client_request_id: string;
+  name: string;
+  email: string;
+  phone: string;
+  document: { type: 'cpf' | 'cnpj'; number: string };
+  // Só o Pix Automático envia endereço; no Pix a cada renovação ele não é necessário.
+  address?: {
+    zip_code: string;
+    street: string;
+    street_number: string;
+    neighborhood: string;
+    city: string;
+    state: string;
+  };
+}
+
+export interface PixSubscriptionResult {
+  subscriptionId: string;
+  status: string;
+  pixQrcode: string | null;
+}
 
 interface SubscriptionContextType {
   subscription: UserSubscription | null;
   loading: boolean;
   hasAccess: boolean;
   isPastDue: boolean;
+  pendingRenewal: RenewalCharge | null;
+  renewalPixExpired: boolean;
+  refreshRenewal: () => Promise<void>;
   checkSubscriptionStatus: () => Promise<UserSubscription | null>;
-  startCheckout: (plan: 'mensal' | 'anual') => Promise<void>;
-  isCheckingOut: boolean;
-  checkoutError: string | null;
-  setCheckoutError: (err: string | null) => void;
+  createSubscription: (form: PixSubscriptionForm) => Promise<PixSubscriptionResult>;
+  cancelSubscription: () => Promise<void>;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
+
+// Extrai a mensagem devolvida pela Edge Function, sem expor detalhes internos.
+async function readFunctionError(error: unknown, fallback: string): Promise<string> {
+  try {
+    const response = (error as any).context;
+    if (response && typeof response.json === 'function') {
+      const payload = await response.json();
+      if (typeof payload?.error === 'string' && payload.error) return payload.error;
+    }
+  } catch {
+    // Sem corpo legível: usa a mensagem padrão.
+  }
+  return fallback;
+}
 
 export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isAdmin } = useAuth();
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [isCheckingOut, setIsCheckingOut] = useState<boolean>(false);
-  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [pendingRenewal, setPendingRenewal] = useState<RenewalCharge | null>(null);
+  const [renewalPixExpired, setRenewalPixExpired] = useState(false);
 
   const fetchSubscription = useCallback(async (): Promise<UserSubscription | null> => {
     if (!user || !isSupabaseConfigured() || !supabase) {
@@ -49,8 +91,6 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
           status: (data.status as SubscriptionStatus) || 'none',
           plan: (data.plano as SubscriptionPlan) || 'mensal',
           currentPeriodEnd: data.periodo_atual_fim || data.current_period_end || null,
-          stripeCustomerId: data.stripe_customer_id || null,
-          stripeSubscriptionId: data.stripe_subscription_id || null,
           manualOverride: Boolean(data.manual_override),
           updatedAt: data.updated_at,
         };
@@ -72,6 +112,82 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     fetchSubscription();
   }, [fetchSubscription]);
 
+  const periodEndKey = subscription?.currentPeriodEnd ?? null;
+
+  // Consulta somente cobranças já criadas pelo webhook. Nunca gera uma nova cobrança.
+  const refreshRenewal = useCallback(async (): Promise<void> => {
+    if (!user || !isSupabaseConfigured() || !supabase) {
+      setPendingRenewal(null);
+      setRenewalPixExpired(false);
+      return;
+    }
+
+    setPendingRenewal(null);
+    setRenewalPixExpired(false);
+
+    // Só considera cobranças do ciclo atual: criadas nos 15 dias antes do fim do período.
+    // Sem isso, um Pix vencido de meses atrás faria aparecer "O Pix venceu" de forma errada.
+    const periodEndMs = periodEndKey ? new Date(periodEndKey).getTime() : NaN;
+    const cycleStart = Number.isFinite(periodEndMs)
+      ? new Date(periodEndMs - 15 * 24 * 60 * 60 * 1000).toISOString()
+      : '1970-01-01T00:00:00.000Z';
+
+    try {
+      const { data, error } = await supabase
+        .from('renewal_charges')
+        .select('transaction_id, pix_code, pix_expires_at, amount_cents, status, created_at')
+        .eq('status', 'waiting_payment')
+        .gte('created_at', cycleStart)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.warn('Aviso ao consultar Pix de renovação:', error.message);
+        return;
+      }
+
+      if (!data) {
+        // Se o webhook já marcou a cobrança como vencida, identifica esse estado sem expor o código Pix.
+        const { data: latestClosedCharge, error: closedError } = await supabase
+          .from('renewal_charges')
+          .select('status, created_at')
+          .in('status', ['expired', 'paid'])
+          .gte('created_at', cycleStart)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (closedError) {
+          console.warn('Aviso ao consultar situação da última cobrança Pix:', closedError.message);
+          return;
+        }
+
+        setRenewalPixExpired(latestClosedCharge?.status === 'expired');
+        return;
+      }
+
+      const expiresAt = data.pix_expires_at ? new Date(data.pix_expires_at) : null;
+      const isExpired = Boolean(expiresAt && Number.isFinite(expiresAt.getTime()) && expiresAt.getTime() <= Date.now());
+
+      if (!expiresAt || !Number.isFinite(expiresAt.getTime()) || isExpired || !data.pix_code) {
+        setRenewalPixExpired(isExpired);
+        return;
+      }
+
+      setPendingRenewal({
+        transactionId: data.transaction_id,
+        pixCode: data.pix_code,
+        pixExpiresAt: data.pix_expires_at,
+        amountCents: data.amount_cents,
+        status: data.status,
+        createdAt: data.created_at,
+      });
+    } catch (err) {
+      console.warn('Erro ao consultar Pix de renovação:', err);
+    }
+  }, [user, periodEndKey]);
+
   const hasAccess = Boolean(
     isAdmin ||
       (subscription &&
@@ -82,57 +198,46 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const isPastDue = Boolean(subscription && subscription.status === 'past_due');
 
-  const startCheckout = async (plan: 'mensal' | 'anual') => {
-    if (!user) {
-      setCheckoutError('Faça login ou crie sua conta gratuita antes de assinar.');
-      return;
+  useEffect(() => {
+    // Consulta ao montar o provider e quando o status de renovação mudar para past_due.
+    refreshRenewal();
+  }, [isPastDue, refreshRenewal]);
+
+  // Cria a assinatura Pix. A liberação do acesso só acontece depois da confirmação pelo webhook.
+  const createSubscription = async (form: PixSubscriptionForm): Promise<PixSubscriptionResult> => {
+    if (!user) throw new Error('Faça login antes de assinar.');
+    if (!isSupabaseConfigured() || !supabase) throw new Error('Serviço indisponível no momento.');
+
+    const { data, error } = await supabase.functions.invoke('create-uvvipay-subscription', {
+      body: form,
+    });
+
+    if (error) {
+      throw new Error(
+        await readFunctionError(error, 'Não foi possível criar a assinatura. Tente novamente.')
+      );
+    }
+    if (!data?.subscription_id) {
+      throw new Error('Resposta inesperada do serviço de pagamento. Tente novamente.');
     }
 
-    setIsCheckingOut(true);
-    setCheckoutError(null);
+    await fetchSubscription();
+    return {
+      subscriptionId: String(data.subscription_id),
+      status: String(data.status ?? 'incomplete'),
+      pixQrcode: data.pix?.qrcode ?? null,
+    };
+  };
 
-    try {
-      if (!isSupabaseConfigured() || !supabase) {
-        throw new Error('Serviço de banco de dados não configurado.');
-      }
+  // Pede o cancelamento. O status final chega pelo webhook subscription.cancelled.
+  const cancelSubscription = async (): Promise<void> => {
+    if (!isSupabaseConfigured() || !supabase) throw new Error('Serviço indisponível no momento.');
 
-      // O backend escolhe o Price ID a partir do plano. O frontend não envia
-      // Price IDs nem valores de preço, evitando divergência entre ambientes.
-      const { data, error } = await supabase.functions.invoke('create-checkout-session', {
-        body: { plan },
-      });
-
-      if (error) {
-        let backendMessage = '';
-        try {
-          const response = (error as any).context;
-          if (response && typeof response.json === 'function') {
-            const payload = await response.json();
-            backendMessage = typeof payload?.error === 'string' ? payload.error : '';
-          }
-        } catch {
-          // Mantém a mensagem genérica caso o corpo da resposta não esteja disponível.
-        }
-
-        console.warn('Erro retornado pela Edge Function:', error, backendMessage);
-        throw new Error(
-          backendMessage ||
-            'Não foi possível iniciar o Checkout. Tente novamente em alguns instantes.'
-        );
-      }
-
-      if (data?.url) {
-        window.location.href = data.url;
-        return;
-      }
-
-      throw new Error('URL de pagamento não foi retornada pelo Stripe.');
-    } catch (err: any) {
-      console.error('Erro ao iniciar checkout:', err);
-      setCheckoutError(err.message || 'Erro ao comunicar com o Stripe.');
-    } finally {
-      setIsCheckingOut(false);
+    const { error } = await supabase.functions.invoke('cancel-uvvipay-subscription', { body: {} });
+    if (error) {
+      throw new Error(await readFunctionError(error, 'Não foi possível cancelar agora. Tente novamente.'));
     }
+    await fetchSubscription();
   };
 
   return (
@@ -142,11 +247,12 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
         loading,
         hasAccess,
         isPastDue,
+        pendingRenewal,
+        renewalPixExpired,
+        refreshRenewal,
         checkSubscriptionStatus: fetchSubscription,
-        startCheckout,
-        isCheckingOut,
-        checkoutError,
-        setCheckoutError,
+        createSubscription,
+        cancelSubscription,
       }}
     >
       {children}

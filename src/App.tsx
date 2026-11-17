@@ -16,7 +16,6 @@ import { RecipeDetail } from './components/RecipeDetail';
 import { FirstOpeningDisclaimerModal } from './components/FirstOpeningDisclaimerModal';
 import { PaywallView } from './components/PaywallView';
 import { PastDueWarningBanner } from './components/PastDueWarningBanner';
-import { PaymentStatusModal } from './components/PaymentStatusModal';
 import { SubscriptionProvider, useSubscription } from './context/SubscriptionContext';
 import { Leaf, ArrowLeft } from 'lucide-react';
 import { InstallPwaGate } from './components/InstallPwaGate';
@@ -469,17 +468,6 @@ function AppContent() {
       <InstallPwaGate />
 
       <FirstOpeningDisclaimerModal />
-
-      {/* Modal de Sucesso ou Cancelamento de Pagamento */}
-      <PaymentStatusModal
-        onGoToRecipes={() => {
-          setShowPaywallManual(false);
-          handleTabChange('home');
-        }}
-        onRetryPayment={() => {
-          setShowPaywallManual(true);
-        }}
-      />
     </div>
   );
 }
